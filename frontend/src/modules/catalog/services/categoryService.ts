@@ -10,7 +10,7 @@ export const categoryService = {
             '/categories',
             {
                 params: { per_page: perPage },
-                headers: auth.authHeaders(),
+                headers: auth.companyHeaders(),
             },
         );
 
@@ -26,7 +26,7 @@ export const categoryService = {
         const response = await http.post<{ data: Category }>(
             '/categories',
             data,
-            { headers: auth.authHeaders() },
+            { headers: auth.companyHeaders() },
         );
 
         return response.data.data;

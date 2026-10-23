@@ -3,17 +3,18 @@
 namespace App\Modules\Identity\Presentation\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Modules\Identity\Application\UseCases\RefreshSession;
+use App\Modules\Identity\Presentation\Requests\RefreshSessionRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use App\Models\User;
-use App\Modules\Identity\Infrastructure\Jwt\JwtTokenService;
 
 class AuthController extends Controller
 {
     public function login(
         Request $request,
-        JwtTokenService $tokens
+        RefreshSession $sessions
     ) {
         $data = $request->validate([
             'email' => ['required', 'email'],
@@ -24,22 +25,27 @@ class AuthController extends Controller
             ->where('email', $data['email'])
             ->first();
 
-        if (!$user || !Hash::check($data['password'], $user->password)) {
+        if (! $user || ! Hash::check($data['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Las credenciales son incorrectas.'],
             ]);
         }
 
         return response()->json([
-            'access_token' => $tokens->issue($user),
-            'token_type' => 'Bearer',
-            'expires_in' => (int) config('jwt.ttl', 900),
+            ...$sessions->create($user),
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
             ],
         ]);
+    }
+
+    public function refresh(RefreshSessionRequest $request, RefreshSession $sessions)
+    {
+        return response()->json(
+            $sessions->rotate($request->validated('refresh_token'))
+        );
     }
 
     public function me(Request $request)
@@ -53,15 +59,19 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request, RefreshSession $sessions)
     {
         $user = $request->user();
+        $familyId = $request->attributes->get('auth_session_family_id');
 
-        $user->token_version++;
-        $user->save();
+        if (is_string($familyId)) {
+            $sessions->revokeFamily($familyId);
+        } else {
+            $user->increment('token_version');
+        }
 
         return response()->json([
-            'message' => 'Sesiones anteriores revocadas.',
+            'message' => 'Sesión revocada.',
         ]);
     }
 }

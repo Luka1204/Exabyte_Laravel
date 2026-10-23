@@ -3,12 +3,13 @@
 namespace App\Modules\Identity\Infrastructure\Jwt;
 
 use App\Models\User;
+use App\Modules\Identity\Infrastructure\Persistence\Eloquent\RefreshToken;
+use DomainException;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Str;
 use UnexpectedValueException;
-use DomainException;
 
 class JwtTokenService
 {
@@ -25,7 +26,7 @@ class JwtTokenService
         return $secret;
     }
 
-    public function issue(User $user): string
+    public function issue(User $user, string $familyId): string
     {
         $now = time();
 
@@ -36,25 +37,27 @@ class JwtTokenService
             'nbf' => $now,
             'exp' => $now + (int) config('jwt.ttl', 900),
             'jti' => (string) Str::uuid(),
+            'sid' => $familyId,
             'ver' => (int) $user->token_version,
         ], $this->secret(), 'HS256');
     }
 
-    public function authenticate(string $token): User
+    public function authenticate(string $token): AuthenticatedSession
     {
         try {
             $claims = JWT::decode(
                 $token,
                 new Key($this->secret(), 'HS256')
             );
-        } catch (UnexpectedValueException | DomainException $exception) {
+        } catch (UnexpectedValueException|DomainException $exception) {
             throw new AuthenticationException('Token inválido o vencido.');
         }
 
         if (
-            !isset($claims->iss, $claims->sub, $claims->exp, $claims->ver)
+            ! isset($claims->iss, $claims->sub, $claims->exp, $claims->ver)
             || $claims->iss !== (string) config('app.url')
-            || !ctype_digit((string) $claims->sub)
+            || ! ctype_digit((string) $claims->sub)
+            || (isset($claims->sid) && ! Str::isUuid((string) $claims->sid))
         ) {
             throw new AuthenticationException('Token inválido.');
         }
@@ -62,12 +65,26 @@ class JwtTokenService
         $user = User::query()->find($claims->sub);
 
         if (
-            !$user
+            ! $user
             || (int) $claims->ver !== (int) $user->token_version
         ) {
             throw new AuthenticationException('Sesión revocada.');
         }
 
-        return $user;
+        $familyId = isset($claims->sid) ? (string) $claims->sid : null;
+
+        if (
+            $familyId !== null
+            && ! RefreshToken::query()
+                ->where('user_id', $user->getKey())
+                ->where('family_id', $familyId)
+                ->whereNull('revoked_at')
+                ->where('expires_at', '>', now())
+                ->exists()
+        ) {
+            throw new AuthenticationException('Sesión revocada.');
+        }
+
+        return new AuthenticatedSession($user, $familyId);
     }
 }

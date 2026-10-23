@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
 import vuetify from 'vite-plugin-vuetify';
 
@@ -15,5 +15,9 @@ export default defineConfig({
                 changeOrigin: true,
             },
         },
+    },
+    test: {
+        environment: 'jsdom',
+        include: ['src/**/*.test.ts'],
     },
 });

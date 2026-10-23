@@ -1,11 +1,14 @@
 import { http } from '../../../shared/api/http';
 import { useAuthStore } from '../stores/authStore';
+import { companyService } from '../../tenancy/services/companyService';
 
 interface LoginResponse 
 {
     access_token:string;
+    refresh_token:string;
     token_type:'Bearer';
     expires_in: number;
+    refresh_expires_in: number;
     user:{
         id:number;
         name:string;
@@ -29,7 +32,16 @@ export const authService = {
             {email, password}
         );
 
-        useAuthStore().setSession(data.access_token, data.user);
+        const auth = useAuthStore();
+        auth.setSession(data.access_token, data.refresh_token, data.user);
+
+        try {
+            await companyService.list();
+        } catch (error) {
+            auth.clearSession();
+            throw error;
+        }
+
         return data.user;
     },
 

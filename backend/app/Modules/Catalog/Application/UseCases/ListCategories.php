@@ -11,8 +11,11 @@ class ListCategories
         private CategoryRepository $categories
     ) {}
 
-    public function execute(int $perPage = 15): LengthAwarePaginator
+    public function execute(
+        int $companyId,
+        int $perPage = 15
+    ): LengthAwarePaginator
     {
-        return $this->categories->paginate($perPage);
+        return $this->categories->paginate($companyId, $perPage);
     }
 }

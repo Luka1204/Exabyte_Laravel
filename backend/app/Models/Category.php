@@ -2,9 +2,16 @@
 
 namespace App\Models;
 
+use App\Modules\Tenancy\Infrastructure\Persistence\Eloquent\Company;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'description'];
+    protected $fillable = ['company_id', 'name', 'description'];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 }

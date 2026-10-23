@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import MainLayout from '../layouts/MainLayout.vue';
 import LoginView from '../modules/identity/views/LoginView.vue';
 import CategoriesView from '../modules/catalog/views/CategoriesView.vue';
+import CompaniesView from '../modules/tenancy/views/CompaniesView.vue';
 
 export const routes: RouteRecordRaw[] = [
     {
@@ -22,6 +23,10 @@ export const routes: RouteRecordRaw[] = [
             {
                 path: 'categories',
                 component: CategoriesView,
+            },
+            {
+                path: 'companies',
+                component: CompaniesView,
             },
         ],
     },

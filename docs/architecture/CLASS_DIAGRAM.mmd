@@ -1,0 +1,124 @@
+classDiagram
+    class AuthController {
+        +login(Request, RefreshSession)
+        +refresh(RefreshSessionRequest, RefreshSession)
+        +me(Request)
+        +logout(Request)
+    }
+    class AuthenticateJwt {
+        +handle(Request, Closure)
+    }
+    class JwtTokenService {
+        +issue(User, familyId) string
+        +authenticate(string) AuthenticatedSession
+    }
+    class AuthenticatedSession {
+        +user
+        +familyId
+    }
+    class RefreshSession {
+        +create(User) array
+        +rotate(string) array
+        +revokeFamily(string) void
+    }
+    class RefreshToken {
+        +user_id
+        +family_id
+        +token_hash
+        +expires_at
+        +revoked_at
+    }
+    class User {
+        +id
+        +name
+        +email
+        +password
+        +token_version
+    }
+
+    class CategoryController {
+        +index(ListCategoriesRequest, ListCategories)
+        +store(StoreCategoryRequest, CreateCategory)
+    }
+    class ListCategoriesRequest {
+        +authorize() bool
+        +rules() array
+    }
+    class StoreCategoryRequest {
+        +authorize() bool
+        +rules() array
+        +prepareForValidation()
+    }
+    class ListCategories {
+        +execute(int) LengthAwarePaginator
+    }
+    class CreateCategory {
+        +execute(array) Category
+    }
+    class CategoryRepository {
+        <<interface>>
+        +paginate(int) LengthAwarePaginator
+        +create(array) Category
+        +existsByName(string) bool
+    }
+    class EloquentCategoryRepository {
+        +paginate(int) LengthAwarePaginator
+        +create(array) Category
+        +existsByName(string) bool
+    }
+    class Category {
+        +id
+        +company_id
+        +name
+        +description
+    }
+    class CategoryPolicy {
+        +viewAny(User, companyId) bool
+        +create(User, companyId) bool
+    }
+    class CatalogServiceProvider {
+        +register()
+    }
+    class CompanyController {
+        +index(Request) JsonResponse
+        +store(StoreCompanyRequest, CreateCompany) JsonResponse
+    }
+    class CreateCompany {
+        +execute(User, string) Company
+    }
+    class RequireCompanyMembership {
+        +handle(Request, Closure) Response
+    }
+    class Company {
+        +id
+        +name
+        +memberships()
+    }
+
+    AuthController --> JwtTokenService : issues access token
+    AuthController --> RefreshSession : creates and rotates token families
+    RefreshSession --> RefreshToken : persists token hashes
+    RefreshSession --> JwtTokenService : issues session-bound access tokens
+    AuthenticateJwt --> JwtTokenService : validates bearer token
+    JwtTokenService --> User : loads and checks token_version
+    JwtTokenService --> RefreshToken : requires an active session family
+    JwtTokenService --> AuthenticatedSession : returns user and family id
+    RefreshToken --> User : belongs to
+    CategoryController --> ListCategories
+    CategoryController --> CreateCategory
+    CategoryController ..> ListCategoriesRequest : validates
+    CategoryController ..> StoreCategoryRequest : validates
+    ListCategories --> CategoryRepository
+    CreateCategory --> CategoryRepository
+    EloquentCategoryRepository ..|> CategoryRepository
+    EloquentCategoryRepository --> Category : Eloquent persistence
+    CatalogServiceProvider ..> CategoryRepository : binds implementation
+    CompanyController --> CreateCompany
+    CompanyController --> Company : lists user memberships
+    RequireCompanyMembership --> User : verifies membership
+    RequireCompanyMembership --> Company : resolves selected company
+    Category --> Company : belongs to
+    CategoryController --> CategoryPolicy : authorizes company role
+    CategoryPolicy --> User : checks membership and role
+    CreateCompany --> Company : transactionally creates
+    Company --> User : memberships

@@ -8,21 +8,29 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class EloquentCategoryRepository implements CategoryRepository
 {
-    public function paginate(int $perPage = 15): LengthAwarePaginator
+    public function paginate(
+        int $companyId,
+        int $perPage = 15
+    ): LengthAwarePaginator
     {
         return Category::query()
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->paginate(min(max($perPage, 1), 100));
     }
 
-    public function create(array $data): Category
+    public function create(int $companyId, array $data): Category
     {
-        return Category::query()->create($data);
+        return Category::query()->create([
+            ...$data,
+            'company_id' => $companyId,
+        ]);
     }
 
-    public function existsByName(string $name): bool
+    public function existsByName(int $companyId, string $name): bool
     {
         return Category::query()
+            ->where('company_id', $companyId)
             ->where('name', $name)
             ->exists();
     }

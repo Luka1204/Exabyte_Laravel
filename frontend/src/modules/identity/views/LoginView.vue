@@ -2,8 +2,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { authService } from '../services/authService';
+import { useAuthStore } from '../stores/authStore';
 
 const router = useRouter();
+const auth = useAuthStore();
 const email = ref('');
 const password = ref('');
 const loading = ref(false);
@@ -15,7 +17,7 @@ async function submit() {
 
     try {
         await authService.login(email.value, password.value);
-        await router.push('/categories');
+        await router.push(auth.activeCompany ? '/categories' : '/companies');
     } catch {
         error.value = 'No se pudo iniciar sesión. Revisá tus credenciales.';
     } finally {

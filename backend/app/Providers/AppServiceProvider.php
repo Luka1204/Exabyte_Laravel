@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Category;
+use App\Policies\CategoryPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 
@@ -20,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-       Schema::defaultStringLength(191);
+        Schema::defaultStringLength(191);
+        Gate::policy(Category::class, CategoryPolicy::class);
     }
 }
