@@ -1,13 +1,15 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Modules\Catalog\Presentation\Http\Controllers\CategoryController;
+use App\Modules\Catalog\Presentation\Http\Controllers\ProductController;
 use App\Modules\Identity\Presentation\Http\Controllers\AuthController;
 use App\Modules\Identity\Presentation\Http\Middleware\AuthenticateJwt;
-use App\Modules\Catalog\Presentation\Http\Controllers\CategoryController;
+use App\Modules\Inventory\Presentation\Http\Controllers\InventoryController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyMemberController;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyMembership;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyOwner;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login'])
@@ -31,6 +33,11 @@ Route::prefix('v1')->group(function () {
         Route::middleware(RequireCompanyMembership::class)->group(function () {
             Route::get('/categories', [CategoryController::class, 'index']);
             Route::post('/categories', [CategoryController::class, 'store']);
+            Route::get('/products', [ProductController::class, 'index']);
+            Route::post('/products', [ProductController::class, 'store']);
+            Route::get('/inventory/stocks', [InventoryController::class, 'stocks']);
+            Route::get('/inventory/movements', [InventoryController::class, 'movements']);
+            Route::post('/inventory/adjustments', [InventoryController::class, 'adjust']);
         });
     });
 });
