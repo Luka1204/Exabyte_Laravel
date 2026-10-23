@@ -1,10 +1,12 @@
 <?php
 
+use App\Modules\CashManagement\Presentation\Http\Controllers\CashSessionController;
 use App\Modules\Catalog\Presentation\Http\Controllers\CategoryController;
 use App\Modules\Catalog\Presentation\Http\Controllers\ProductController;
 use App\Modules\Identity\Presentation\Http\Controllers\AuthController;
 use App\Modules\Identity\Presentation\Http\Middleware\AuthenticateJwt;
 use App\Modules\Inventory\Presentation\Http\Controllers\InventoryController;
+use App\Modules\Sales\Presentation\Http\Controllers\SaleController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyMemberController;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyMembership;
@@ -38,6 +40,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/inventory/stocks', [InventoryController::class, 'stocks']);
             Route::get('/inventory/movements', [InventoryController::class, 'movements']);
             Route::post('/inventory/adjustments', [InventoryController::class, 'adjust']);
+            Route::get('/cash/session', [CashSessionController::class, 'current']);
+            Route::post('/cash/session', [CashSessionController::class, 'open']);
+            Route::post('/cash/session/{session}/close', [CashSessionController::class, 'close']);
+            Route::get('/sales', [SaleController::class, 'index']);
+            Route::post('/sales', [SaleController::class, 'store']);
+            Route::post('/sales/{sale}/void', [SaleController::class, 'void']);
         });
     });
 });

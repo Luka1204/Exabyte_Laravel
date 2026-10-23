@@ -21,6 +21,8 @@ class ListInventoryStocks
                 'products.name',
                 'products.sku',
                 'products.barcode',
+                'products.price',
+                'products.tax_rate',
                 'products.is_active',
                 'inventory_balances.quantity',
             ]);

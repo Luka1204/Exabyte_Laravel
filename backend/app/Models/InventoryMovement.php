@@ -12,10 +12,15 @@ class InventoryMovement extends Model
 
     public const TYPE_ADJUSTMENT = 'adjustment';
 
+    public const TYPE_SALE = 'sale';
+
+    public const TYPE_SALE_VOID = 'sale_void';
+
     protected $fillable = [
         'company_id',
         'product_id',
         'user_id',
+        'sale_id',
         'type',
         'quantity_delta',
         'balance_after',
@@ -44,5 +49,10 @@ class InventoryMovement extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
     }
 }
