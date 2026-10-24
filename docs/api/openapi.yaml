@@ -306,6 +306,10 @@ paths:
           description: Falta una empresa activa válida.
         "404":
           description: El usuario no pertenece a la empresa seleccionada.
+        "402":
+          description: No existe una suscripción vigente ni una excepción legacy aplicable.
+        "403":
+          description: El plan no incluye la funcionalidad solicitada.
         "422":
           $ref: "#/components/responses/ValidationError"
     post:
@@ -350,7 +354,9 @@ paths:
         "404":
           description: El usuario no pertenece a la empresa seleccionada.
         "403":
-          description: El rol del miembro no permite crear categorías; se requiere owner o manager.
+          description: El rol no permite crear categorías o el plan no incluye el entitlement catalog.
+        "402":
+          description: No existe una suscripción vigente ni una excepción legacy aplicable.
         "422":
           $ref: "#/components/responses/ValidationError"
   /reports/sales:
@@ -399,6 +405,10 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "404":
           description: El usuario no pertenece a la empresa seleccionada.
+        "402":
+          description: No existe una suscripción vigente ni una excepción legacy aplicable.
+        "403":
+          description: El plan no incluye sales_reports.
         "422":
           $ref: "#/components/responses/ValidationError"
   /reports/inventory:
@@ -444,6 +454,10 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "404":
           description: El usuario no pertenece a la empresa seleccionada.
+        "402":
+          description: No existe una suscripción vigente ni una excepción legacy aplicable.
+        "403":
+          description: El plan no incluye inventory_reports.
         "422":
           $ref: "#/components/responses/ValidationError"
   /reports/cash:
@@ -490,6 +504,10 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "404":
           description: El usuario no pertenece a la empresa seleccionada.
+        "402":
+          description: No existe una suscripción vigente ni una excepción legacy aplicable.
+        "403":
+          description: El plan no incluye cash_reports.
         "422":
           $ref: "#/components/responses/ValidationError"
   /sales/{sale}/returns:
@@ -580,6 +598,246 @@ paths:
           description: No hay caja abierta o la venta no admite devoluciones.
         "422":
           $ref: "#/components/responses/ValidationError"
+  /auth/register:
+    post:
+      summary: Registrar una cuenta y su primera empresa
+      description: Limitado a tres solicitudes por minuto. La cuenta y la membresía owner se crean en una transacción.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation, company_name]
+              properties:
+                name: { type: string, maxLength: 120 }
+                email: { type: string, format: email }
+                password: { type: string, format: password, minLength: 12 }
+                password_confirmation: { type: string, format: password }
+                company_name: { type: string, maxLength: 160 }
+      responses:
+        "201":
+          description: Cuenta creada con sesión activa y empresa inicial.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, refresh_token, user, company]
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+                  user: { $ref: "#/components/schemas/User" }
+                  company: { $ref: "#/components/schemas/CompanyMembership" }
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          description: Límite de solicitudes alcanzado.
+  /plans:
+    get:
+      summary: Listar planes disponibles
+      description: Devuelve únicamente planes activos y precios en ARS.
+      responses:
+        "200":
+          description: Planes públicos disponibles para nuevas contrataciones.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Plan" }
+  /companies/{company}/subscription:
+    parameters:
+      - name: company
+        in: path
+        required: true
+        schema: { type: integer }
+    get:
+      summary: Consultar suscripción y pagos de la empresa
+      description: Requiere autenticación JWT y membresía owner de la empresa.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Suscripción más reciente o null.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    oneOf:
+                      - $ref: "#/components/schemas/Subscription"
+                      - type: "null"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Se requiere el rol owner.
+        "404":
+          description: Empresa no disponible para el usuario.
+    post:
+      summary: Crear o continuar una contratación
+      description: El precio y snapshot contractual se obtienen del plan guardado en el servidor; el checkout se procesa en Mercado Pago.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id, billing_period]
+              properties:
+                plan_id: { type: integer }
+                billing_period: { type: string, enum: [monthly, annual] }
+      responses:
+        "201":
+          description: Suscripción pendiente y enlace alojado de checkout.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Subscription" }
+                  checkout_url: { type: [string, "null"], format: uri }
+        "200":
+          description: Se reanudó la contratación pendiente existente.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Se requiere el rol owner.
+        "409":
+          description: Ya existe otra contratación activa o pendiente.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "502":
+          description: Mercado Pago no pudo iniciar el checkout.
+        "503":
+          description: La integración de Mercado Pago no está configurada.
+    delete:
+      summary: Cancelar la suscripción de la empresa
+      description: Cancela inmediatamente la autorización recurrente; conserva el historial financiero.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Suscripción cancelada.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          description: Se requiere el rol owner.
+  /payments/mercadopago/webhook:
+    post:
+      summary: Recibir una notificación firmada de Mercado Pago
+      description: Valida la firma oficial, guarda una referencia mínima e idempotente y encola el procesamiento.
+      parameters:
+        - name: x-signature
+          in: header
+          required: true
+          schema: { type: string }
+        - name: x-request-id
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Notificación recibida (incluidas las duplicadas).
+        "401":
+          description: Firma inválida.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          description: El secreto de firma no está configurado.
+  /platform/plans:
+    get:
+      summary: Listar todos los planes para Superadmin
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Planes activos e inactivos.
+    post:
+      summary: Crear un plan comercial
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanWrite" }
+      responses:
+        "201":
+          description: Plan creado y evento auditado.
+        "403":
+          description: Se requiere autorización Superadmin.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /platform/plans/{plan}:
+    put:
+      summary: Actualizar un plan comercial
+      description: Cambios contractuales incrementan terms_version; los snapshots existentes no se reescriben.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: plan
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanWrite" }
+      responses:
+        "200":
+          description: Plan actualizado y acción auditada.
+        "403":
+          description: Se requiere autorización Superadmin.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /platform/subscriptions:
+    get:
+      summary: Consultar suscripciones para Superadmin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, trialing, active, past_due, grace, suspended, canceled, expired] }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        "200":
+          description: Página de contratos, empresas, titulares y últimos intentos de pago.
+        "403":
+          description: Se requiere autorización Superadmin.
+  /platform/payments:
+    get:
+      summary: Consultar intentos de pago para Superadmin
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, paid, failed, canceled] }
+        - name: kind
+          in: query
+          schema: { type: string, enum: [initial, renewal, change] }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        "200":
+          description: Página de operaciones sin los datos internos del proveedor.
+        "403":
+          description: Se requiere autorización Superadmin.
+  /platform/metrics:
+    get:
+      summary: Consultar métricas comerciales para Superadmin
+      description: Ingresos cobrados son pagos pagados con paid_at; el MRR es solo una estimación normalizada desde contratos activos.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Conteos, ingresos cobrados, estimación recurrente y distribución por plan y estado.
+        "403":
+          description: Se requiere autorización Superadmin.
 components:
   securitySchemes:
     bearerAuth:
@@ -587,6 +845,105 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    Plan:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - currency
+        - monthly_amount
+        - annual_amount
+        - limits
+        - entitlements
+        - terms_version
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        benefits:
+          type: array
+          items: { type: string }
+        currency: { type: string, const: ARS }
+        monthly_amount: { type: string }
+        annual_amount: { type: string }
+        limits:
+          type: object
+          additionalProperties: { type: [integer, "null"] }
+        entitlements:
+          type: object
+          additionalProperties: { type: boolean }
+        trial_days: { type: integer }
+        grace_days: { type: integer }
+        terms_version: { type: integer }
+        is_active: { type: boolean }
+    PlanWrite:
+      type: object
+      required:
+        - code
+        - name
+        - benefits
+        - currency
+        - monthly_amount
+        - annual_amount
+        - limits
+        - entitlements
+        - trial_days
+        - grace_days
+        - is_active
+      properties:
+        code: { type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+        name: { type: string, maxLength: 120 }
+        description: { type: [string, "null"] }
+        benefits:
+          type: array
+          maxItems: 30
+          items: { type: string, maxLength: 240 }
+        currency: { type: string, const: ARS }
+        monthly_amount: { type: number, exclusiveMinimum: 0 }
+        annual_amount: { type: number, exclusiveMinimum: 0 }
+        limits:
+          type: object
+          required: [users, branches, cash_registers]
+          properties:
+            users: { type: integer, minimum: 1 }
+            branches: { type: integer, minimum: 1 }
+            cash_registers: { type: integer, minimum: 1 }
+            products: { type: [integer, "null"], minimum: 1 }
+        entitlements:
+          type: object
+          additionalProperties: { type: boolean }
+        trial_days: { type: integer, const: 0 }
+        grace_days: { type: integer, minimum: 0, maximum: 90 }
+        is_active: { type: boolean }
+    Subscription:
+      type: object
+      required: [id, company_id, billing_user_id, plan_id, terms_snapshot, billing_period, status]
+      properties:
+        id: { type: integer }
+        company_id: { type: integer }
+        billing_user_id: { type: integer }
+        plan_id: { type: integer }
+        terms_snapshot: { type: object }
+        billing_period: { type: string, enum: [monthly, annual] }
+        status: { type: string, enum: [pending, trialing, active, past_due, grace, suspended, canceled, expired] }
+        provider_status: { type: [string, "null"] }
+        checkout_url: { type: [string, "null"], format: uri }
+        current_period_end: { type: [string, "null"], format: date-time }
+        canceled_at: { type: [string, "null"], format: date-time }
+        payment_attempts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              kind: { type: string }
+              status: { type: string }
+              amount: { type: string }
+              currency: { type: string }
+              provider_status: { type: [string, "null"] }
+              paid_at: { type: [string, "null"], format: date-time }
     User:
       type: object
       required: [id, name, email]

@@ -5,6 +5,8 @@ namespace App\Modules\Identity\Presentation\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Modules\Identity\Application\UseCases\RefreshSession;
+use App\Modules\Identity\Application\UseCases\RegisterAccount;
+use App\Modules\Identity\Presentation\Requests\RegisterAccountRequest;
 use App\Modules\Identity\Presentation\Requests\RefreshSessionRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -12,6 +14,28 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function register(
+        RegisterAccountRequest $request,
+        RegisterAccount $register,
+        RefreshSession $sessions
+    ) {
+        $result = $register->execute($request->validated());
+
+        return response()->json([
+            ...$sessions->create($result['user']),
+            'user' => [
+                'id' => $result['user']->id,
+                'name' => $result['user']->name,
+                'email' => $result['user']->email,
+            ],
+            'company' => [
+                'id' => $result['company']->id,
+                'name' => $result['company']->name,
+                'role' => 'owner',
+            ],
+        ], 201);
+    }
+
     public function login(
         Request $request,
         RefreshSession $sessions

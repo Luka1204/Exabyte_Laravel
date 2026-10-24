@@ -17,4 +17,5 @@ class Company extends Model
             'company_memberships'
         )->withPivot('role')->withTimestamps();
     }
+
 }

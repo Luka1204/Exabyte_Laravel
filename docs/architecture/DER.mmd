@@ -36,6 +36,109 @@ erDiagram
         timestamp updated_at
     }
 
+    PLATFORM_ADMINS {
+        bigint id PK
+        bigint user_id FK UK
+        bigint granted_by FK "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SUBSCRIPTION_ACCESS_EXEMPTIONS {
+        bigint id PK
+        bigint company_id FK UK
+        varchar reason
+        timestamp expires_at "nullable"
+        timestamp created_at
+    }
+
+    PLANS {
+        bigint id PK
+        varchar code UK
+        varchar name
+        text description "nullable"
+        json benefits
+        char currency
+        decimal monthly_amount
+        decimal annual_amount
+        json limits
+        json entitlements
+        int trial_days
+        int grace_days
+        int terms_version
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SUBSCRIPTIONS {
+        bigint id PK
+        bigint company_id FK
+        bigint billing_user_id FK
+        bigint plan_id FK
+        json terms_snapshot
+        varchar billing_period
+        varchar status
+        varchar provider
+        varchar provider_status "nullable"
+        varchar provider_subscription_id UK "nullable"
+        varchar checkout_url "nullable"
+        uuid external_reference UK
+        timestamp trial_ends_at "nullable"
+        timestamp current_period_start "nullable"
+        timestamp current_period_end "nullable"
+        timestamp grace_ends_at "nullable"
+        boolean cancel_at_period_end
+        timestamp canceled_at "nullable"
+        timestamp last_provider_event_at "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PAYMENT_ATTEMPTS {
+        bigint id PK
+        bigint subscription_id FK
+        int attempt_number
+        varchar provider
+        varchar kind
+        varchar status
+        decimal amount
+        char currency
+        varchar provider_invoice_id UK "nullable"
+        varchar provider_payment_id UK "nullable"
+        varchar provider_status "nullable"
+        varchar external_reference "nullable"
+        json provider_data "nullable"
+        timestamp paid_at "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PROVIDER_EVENTS {
+        bigint id PK
+        varchar provider
+        varchar provider_event_id
+        varchar topic
+        varchar resource_id
+        varchar request_id "nullable"
+        json payload
+        varchar processing_status
+        varchar failure_code "nullable"
+        timestamp processed_at "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PLATFORM_AUDIT_EVENTS {
+        bigint id PK
+        bigint actor_user_id FK "nullable"
+        varchar action
+        varchar subject_type
+        varchar subject_id "nullable"
+        json details "nullable"
+        timestamp created_at
+    }
+
     REFRESH_TOKENS {
         bigint id PK
         bigint user_id FK
@@ -110,5 +213,13 @@ erDiagram
 
     COMPANIES ||--o{ COMPANY_MEMBERSHIPS : has
     USERS ||--o{ COMPANY_MEMBERSHIPS : joins
+    USERS ||--o| PLATFORM_ADMINS : authorized_as
+    USERS o|--o{ PLATFORM_ADMINS : grants
+    COMPANIES ||--o{ SUBSCRIPTIONS : contracts
+    COMPANIES ||--o| SUBSCRIPTION_ACCESS_EXEMPTIONS : legacy_access
+    USERS ||--o{ SUBSCRIPTIONS : billing_owner
+    PLANS ||--o{ SUBSCRIPTIONS : selected_for
+    SUBSCRIPTIONS ||--o{ PAYMENT_ATTEMPTS : records
+    USERS o|--o{ PLATFORM_AUDIT_EVENTS : performs
     USERS ||--o{ REFRESH_TOKENS : owns
     COMPANIES ||--o{ CATEGORIES : owns

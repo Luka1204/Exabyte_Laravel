@@ -1,17 +1,17 @@
 :root {
   font-family: Inter, 'Segoe UI', Roboto, sans-serif;
-  color: #17243b;
-  background: #f4f6fa;
+  color: #171717;
+  background: #f7f7f8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --exa-navy: #10213f;
-  --exa-red: #c6283d;
-  --exa-blue: #244d83;
-  --exa-muted: #718096;
-  --exa-border: #e4e9f1;
+  --exa-navy: #171717;
+  --exa-red: #c62828;
+  --exa-blue: #333333;
+  --exa-muted: #6b7280;
+  --exa-border: #e5e7eb;
   --exa-surface: #fff;
 }
 
@@ -23,7 +23,7 @@ body {
   min-width: 360px;
   min-height: 100vh;
   margin: 0;
-  background: #f4f6fa;
+  background: #f7f7f8;
 }
 
 button,
@@ -37,7 +37,7 @@ a {
 
 .app-shell {
   min-height: 100vh;
-  background: #f4f6fa;
+  background: #f7f7f8;
 }
 
 .page-container {
@@ -84,7 +84,30 @@ a {
   border: 1px solid var(--exa-border);
   border-radius: 18px !important;
   background: var(--exa-surface);
-  box-shadow: 0 12px 36px rgb(16 33 63 / 6%) !important;
+  box-shadow: 0 12px 36px rgb(23 23 23 / 6%) !important;
+}
+
+.metric-card {
+  min-height: 132px;
+  padding: 22px;
+}
+
+.metric-label {
+  color: var(--exa-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.metric-value {
+  margin-top: 10px;
+  color: var(--exa-navy);
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.metric-value--small {
+  font-size: clamp(1.45rem, 2vw, 1.9rem);
 }
 
 .brand-mark {
@@ -116,7 +139,7 @@ a {
   padding: clamp(32px, 6vw, 88px);
   background:
     radial-gradient(circle at 85% 15%, rgb(198 40 61 / 44%), transparent 30%),
-    linear-gradient(145deg, #10213f 0%, #183b68 100%);
+    linear-gradient(145deg, #171717 0%, #333333 100%);
   color: white;
 }
 

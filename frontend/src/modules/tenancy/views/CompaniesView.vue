@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { isAxiosError } from 'axios';
 import {
     companyService,
@@ -8,9 +8,11 @@ import {
     type CompanyMemberRole,
 } from '../services/companyService';
 import { useAuthStore } from '../../identity/stores/authStore';
+import { subscriptionService } from '../../subscriptions/services/subscriptionService';
 
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const name = ref('');
 const saving = ref(false);
 const error = ref('');
@@ -28,8 +30,24 @@ async function createCompany() {
     error.value = '';
 
     try {
-        await companyService.create(name.value.trim());
+        const company = await companyService.create(name.value.trim());
         name.value = '';
+        const planId = Number(route.query.plan);
+        const period = route.query.period === 'annual' ? 'annual' : 'monthly';
+        if (Number.isSafeInteger(planId) && planId > 0) {
+            try {
+                const checkout = await subscriptionService.start(company.id, planId, period);
+                if (checkout.checkout_url) {
+                    window.location.assign(checkout.checkout_url);
+                    return;
+                }
+            } catch (exception: unknown) {
+                error.value = `La empresa se creó, pero no se pudo iniciar el checkout: ${
+                    errorMessage(exception, 'Intentá nuevamente desde Planes.')
+                }`;
+                return;
+            }
+        }
         await router.push('/categories');
     } catch (exception: unknown) {
         if (isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(exception)) {

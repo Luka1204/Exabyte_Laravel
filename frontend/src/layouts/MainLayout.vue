@@ -63,6 +63,17 @@ async function selectCompany(companyId: number) {
                     title="Empresas"
                     to="/companies"
                 />
+                <v-list-item
+                    prepend-icon="mdi-view-grid-outline"
+                    title="Planes"
+                    to="/plans"
+                />
+                <v-list-item
+                    prepend-icon="mdi-credit-card-outline"
+                    title="Suscripción"
+                    to="/subscription"
+                    v-if="auth.activeCompany?.role === 'owner'"
+                />
             </v-list>
         </v-navigation-drawer>
 

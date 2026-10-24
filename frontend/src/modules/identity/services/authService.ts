@@ -15,14 +15,21 @@ interface LoginResponse
         email:string;
     };
 }
-interface RegisterResponse
-{
-    require_verify: boolean;
-    user:{
-        id:number;
-        name:string;
-        email:string;
-    }
+interface RegisterResponse {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+    refresh_expires_in: number;
+    user: {
+        id: number;
+        name: string;
+        email: string;
+    };
+    company: {
+        id: number;
+        name: string;
+        role: 'owner';
+    };
 }
 
 export const authService = {
@@ -45,11 +52,22 @@ export const authService = {
         return data.user;
     },
 
-    async register(email: string, password: string){
-        const { data } = await http.post<RegisterResponse>(
+    async register(registration: {
+        name: string;
+        email: string;
+        password: string;
+        password_confirmation: string;
+        company_name: string;
+    }) {
+        const { data: responseData } = await http.post<RegisterResponse>(
             '/auth/register',
-            {email, password}
+            registration,
         );
-        return data.user;
+
+        const auth = useAuthStore();
+        auth.setSession(responseData.access_token, responseData.refresh_token, responseData.user);
+        auth.setCompanies([responseData.company]);
+
+        return responseData;
     }
 }

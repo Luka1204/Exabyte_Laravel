@@ -76,6 +76,107 @@ classDiagram
         +viewAny(User, companyId) bool
         +create(User, companyId) bool
     }
+    class RegisterAccount {
+        +execute(array) UserCompany
+    }
+    class PlanController {
+        +index() JsonResponse
+        +adminIndex() JsonResponse
+        +store(StorePlanRequest) JsonResponse
+        +update(StorePlanRequest, plan) JsonResponse
+    }
+    class PlatformBillingController {
+        +subscriptions(Request) JsonResponse
+        +payments(Request) JsonResponse
+        +metrics() JsonResponse
+    }
+    class StartSubscription {
+        +execute(companyId, User, planId, billingPeriod) Subscription
+    }
+    class CancelSubscription {
+        +execute(companyId, billingUserId) Subscription
+    }
+    class SubscriptionLifecycle {
+        +transition(Subscription, targetStatus) void
+    }
+    class SubscriptionAccess {
+        +featureDenial(companyId, entitlement) array|null
+        +assertProductLimit(companyId) void
+    }
+    class RequireSubscriptionEntitlement {
+        +handle(Request, Closure, entitlement) Response
+    }
+    class MercadoPagoGateway {
+        <<interface>>
+        +createPendingPreapproval(array) array
+        +findPreapprovalByReference(reference) array
+        +findAuthorizedPayment(paymentId) array
+        +cancelPreapproval(id) void
+    }
+    class MercadoPagoSdkGateway {
+        +createPendingPreapproval(array) array
+        +findPreapprovalByReference(reference) array
+        +findAuthorizedPayment(paymentId) array
+        +cancelPreapproval(id) void
+    }
+    class MercadoPagoWebhookController {
+        +__invoke(Request) Response
+    }
+    class ProcessMercadoPagoEvent {
+        +handle(MercadoPagoGateway) void
+    }
+    class RequirePlatformAdmin {
+        +handle(Request, Closure) Response
+    }
+    class Plan {
+        +id
+        +code
+        +monthly_amount
+        +annual_amount
+        +limits
+        +entitlements
+        +terms_version
+        +is_active
+    }
+    class Subscription {
+        +company_id
+        +billing_user_id
+        +plan_id
+        +terms_snapshot
+        +status
+        +provider_status
+        +external_reference
+    }
+    class PaymentAttempt {
+        +subscription_id
+        +attempt_number
+        +kind
+        +status
+        +amount
+        +provider_invoice_id
+        +provider_payment_id
+    }
+    class ProviderEvent {
+        +provider_event_id
+        +topic
+        +resource_id
+        +processing_status
+    }
+    class PlatformAuditEvent {
+        +actor_user_id
+        +action
+        +subject_type
+        +subject_id
+    }
+    class PlatformAdmin {
+        +user_id
+        +granted_by
+    }
+    class SubscriptionAccessExemption {
+        +company_id
+        +reason
+        +expires_at
+    }
     class CatalogServiceProvider {
         +register()
     }
@@ -122,3 +223,28 @@ classDiagram
     CategoryPolicy --> User : checks membership and role
     CreateCompany --> Company : transactionally creates
     Company --> User : memberships
+    AuthController --> RegisterAccount : registers account
+    PlanController --> Plan : manages offers
+    PlanController --> PlatformAuditEvent : audits changes
+    PlatformBillingController --> Subscription : reads contracts
+    PlatformBillingController --> PaymentAttempt : reads payment history
+    PlatformBillingController --> Plan : aggregates distribution
+    RequirePlatformAdmin --> PlatformAdmin : verifies platform authorization
+    RequireSubscriptionEntitlement --> SubscriptionAccess : checks feature access
+    SubscriptionAccess --> Subscription : resolves current contractual terms
+    SubscriptionAccess --> SubscriptionAccessExemption : preserves legacy access
+    SubscriptionAccess --> Product : enforces product count transactionally
+    StartSubscription --> MercadoPagoGateway : creates/recovers hosted checkout
+    StartSubscription --> Subscription : snapshots commercial terms
+    StartSubscription --> PaymentAttempt : records initial attempt
+    MercadoPagoSdkGateway ..|> MercadoPagoGateway
+    MercadoPagoWebhookController --> ProviderEvent : validates, persists, deduplicates
+    MercadoPagoWebhookController --> ProcessMercadoPagoEvent : enqueues event
+    ProcessMercadoPagoEvent --> MercadoPagoGateway : verifies provider state
+    ProcessMercadoPagoEvent --> SubscriptionLifecycle : validates state transitions
+    ProcessMercadoPagoEvent --> PaymentAttempt : records verified operations
+    ProcessMercadoPagoEvent --> ProviderEvent : records processing result
+    Subscription --> Plan : references catalog plan
+    Subscription --> Company : belongs to billing tenant
+    Subscription --> User : billing owner
+    Subscription --> PaymentAttempt : has immutable attempt history

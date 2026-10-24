@@ -4,23 +4,27 @@
 
 | Módulo/capa | Responsabilidad actual | Estado |
 |---|---|---|
-| Identity | Login JWT, refresh opaco rotativo, detección de reuso y revocación por sesión | Parcial; sesión en memoria, sin registro ni recuperación de cuenta |
-| Tenancy | Alta/listado de empresas; owner puede listar miembros, cambiar roles member/manager y quitar membresías no-owner | Parcial; sin invitaciones/altas de usuarios ni transferencia de ownership |
+| Identity | Registro transaccional de usuario/empresa owner, login JWT, refresh opaco rotativo, detección de reuso y revocación por sesión | Parcial; sin verificación de email, recuperación de cuenta ni sesión persistente del navegador |
+| Tenancy | Alta/listado de empresas; owner puede listar miembros, cambiar roles member/manager y quitar membresías no-owner; las empresas existentes antes de la migración reciben una excepción explícita | Parcial; sin invitaciones ni transferencia de ownership; límites de miembros, sucursales y cajas requieren endpoints/recursos adicionales |
+| Subscriptions/Billing | Catálogo ARS administrable con snapshot contractual, contratación pendiente, historial de intentos, lifecycle y cancelación con Mercado Pago; webhook firmado/idempotente y consulta autoritativa de pago; enforcement central de catalog/inventory/POS/reportes y límite de productos | Parcial; no hay reconciliación programada, cambio de plan ni automatización de vencimientos/gracia; sin sandbox verificado |
+| PlatformAdministration | Autorización separada en `platform_admins`, gestión de planes, consulta de suscripciones/pagos, métricas y auditoría de modificaciones de planes | Parcial; sin consola de incidentes, conciliación/reintentos operativos ni auditoría completa de todas las acciones |
 | Catalog | Categorías y productos tenant-scoped; SKU/código de barras únicos por empresa; precio e impuesto validados | MVP implementado para alta/listado; sin importación/exportación |
 | Inventory | Saldos por producto/empresa, libro paginado de movimientos y ajustes idempotentes | MVP implementado; sin sucursales/depósitos ni compras/recepciones |
 | CashManagement | Una caja abierta por empresa; apertura, cierre y diferencia de arqueo | MVP implementado; caja ligada a empresa, no a terminal/sucursal |
 | Sales/POS | Venta en efectivo, descuento de stock, idempotencia, ticket, anulación y devolución parcial/total trazable | MVP implementado; sin otros medios de pago |
 | Modelos compartidos | `User` y `Category` en `app/Models` | Fuera de los límites funcionales; no mover masivamente sin migración coordinada |
 | Framework | Rutas, proveedores Laravel, cache, sesiones y colas | Infraestructura del monolito |
-| Frontend Identity/Tenancy | Login, refresh automático, selector de empresa y gestión de membresías | Parcial; sesión en memoria, sin registro ni recuperación |
+| Frontend Identity/Tenancy | Login, registro con empresa inicial, refresh automático, selector de empresa y gestión de membresías | Parcial; sesión en memoria, sin recuperación de cuenta ni verificación de email |
+| Frontend Subscriptions | Landing, planes/precios, selección mensual/anual, registro con plan seleccionado y estado/pagos de la empresa | Implementado contra API; requiere credenciales y verificación sandbox de Mercado Pago |
+| Frontend PlatformAdministration | Panel con métricas de suscripciones/pagos y CRUD de planes | Parcial; vistas y API protegidas, sin acciones de conciliación/reintentos ni soporte operativo |
 | Frontend Catalog | Categorías y productos con validación de API y presentación de estados vacíos/errores | MVP implementado |
 | Frontend Inventory | Saldos, ajuste de stock y consulta de movimientos recientes | MVP implementado |
 | Frontend Sales/POS | Búsqueda por nombre/SKU, lector HID configurable (Enter/Tab/manual), carrito, caja, venta, historial, anulación y devolución autorizadas | MVP implementado; interfaz en tema rojo/blanco/azul oscuro |
 | Reporting | Resúmenes por rango de fechas de ventas, inventario (productos/saldos y movimientos) y caja (sesiones, ventas, devoluciones y arqueos) | Reportes tenant-scoped de ventas, inventario y caja implementados; pendiente compras y optimización medida |
 
-Siguen pendientes autorización granular más allá de las policies actuales,
-suscripciones, compras, sucursales/depósitos, pagos no-efectivo, reporte de compras
-y recuperación/registro de cuentas.
+Siguen pendientes la aplicación centralizada de entitlements y límites, la gestión
+operativa completa de suscripciones/pagos, compras, sucursales/depósitos, pagos no
+efectivo, reporte de compras y recuperación/verificación de cuentas.
 
 ## Estructura objetivo del backend
 

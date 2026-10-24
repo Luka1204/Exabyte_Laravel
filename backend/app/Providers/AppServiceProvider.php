@@ -12,6 +12,8 @@ use App\Policies\CategoryPolicy;
 use App\Policies\InventoryPolicy;
 use App\Policies\ProductPolicy;
 use App\Policies\SalePolicy;
+use App\Modules\Subscriptions\Domain\Contracts\MercadoPagoGateway;
+use App\Modules\Subscriptions\Infrastructure\MercadoPago\MercadoPagoSdkGateway;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
@@ -23,7 +25,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(MercadoPagoGateway::class, MercadoPagoSdkGateway::class);
     }
 
     /**

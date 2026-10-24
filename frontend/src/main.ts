@@ -23,13 +23,13 @@ const vuetify = createVuetify({
             exabyte: {
                 dark: false,
                 colors: {
-                    primary: '#c6283d',
-                    secondary: '#10213f',
-                    info: '#244d83',
+                    primary: '#C62828',
+                    secondary: '#333333',
+                    info: '#6B7280',
                     success: '#23846a',
                     warning: '#c47a19',
-                    error: '#c6283d',
-                    background: '#f4f6fa',
+                    error: '#8E1B1B',
+                    background: '#F7F7F8',
                     surface: '#ffffff',
                 },
             },
@@ -47,6 +47,10 @@ const router = createRouter({
 
 router.beforeEach((to) => {
     const auth = useAuthStore();
+
+    if (to.path === '/' && !auth.accessToken) {
+        return '/welcome';
+    }
 
     if (to.matched.some((record) => record.meta.requiresAuth)
         && !auth.accessToken) {

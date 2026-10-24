@@ -8,8 +8,25 @@ import InventoryView from '../modules/inventory/views/InventoryView.vue';
 import SalesView from '../modules/sales/views/SalesView.vue';
 import SalesReportView from '../modules/sales/views/SalesReportView.vue';
 import CompaniesView from '../modules/tenancy/views/CompaniesView.vue';
+import RegisterView from '../modules/identity/views/RegisterView.vue';
+import LandingView from '../modules/subscriptions/views/LandingView.vue';
+import PlansView from '../modules/subscriptions/views/PlansView.vue';
+import CompanySubscriptionView from '../modules/subscriptions/views/CompanySubscriptionView.vue';
 
 export const routes: RouteRecordRaw[] = [
+    {
+        path: '/welcome',
+        component: LandingView,
+    },
+    {
+        path: '/plans',
+        component: PlansView,
+    },
+    {
+        path: '/register',
+        component: RegisterView,
+        meta: { guestOnly: true },
+    },
     {
         path: '/login',
         component: LoginView,
@@ -48,6 +65,20 @@ export const routes: RouteRecordRaw[] = [
                 path: 'companies',
                 component: CompaniesView,
             },
+            {
+                path: 'subscription',
+                component: CompanySubscriptionView,
+            },
         ],
+    },
+    {
+        path: '/platform',
+        component: () => import('../modules/subscriptions/views/PlatformOverviewView.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/platform/plans',
+        component: () => import('../modules/subscriptions/views/PlatformPlansView.vue'),
+        meta: { requiresAuth: true },
     },
 ];
