@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-
+import { ref, watch } from 'vue';
+import { apiErrorMessage } from '../../../shared/api/errorMessage';
+import { useAuthStore } from '../../identity/stores/authStore';
 import { categoryService } from '../services/categoryService';
 import type { Category } from '../types/category';
 
+const auth = useAuthStore();
 const categories = ref<Category[]>([]);
 const name = ref('');
 const description = ref('');
@@ -19,8 +21,8 @@ async function loadCategories() {
     try {
         const response = await categoryService.list();
         categories.value = response.data;
-    } catch {
-        error.value = 'No se pudieron cargar las categorías.';
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(exception, 'No se pudieron cargar las categorías.');
     } finally {
         loading.value = false;
     }
@@ -42,27 +44,30 @@ async function createCategory() {
         success.value = 'Categoría creada correctamente.';
 
         await loadCategories();
-    } catch (exception: any) {
-        const errors = exception.response?.data?.errors;
-        error.value = errors?.name?.[0]
-            ?? exception.response?.data?.message
-            ?? 'No se pudo crear la categoría.';
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(exception, 'No se pudo crear la categoría.');
     } finally {
         saving.value = false;
     }
 }
 
-onMounted(loadCategories);
+watch(() => auth.activeCompanyId, loadCategories, { immediate: true });
 </script>
 
 <template>
-    <v-container>
-        <div class="d-flex align-center justify-space-between mb-6">
-            <h1 class="text-h4">Categorías</h1>
-
+    <div class="page-container">
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">Catálogo</span>
+                <h1>Categorías</h1>
+                <p>Organizá los productos de tu negocio por tipo.</p>
+            </div>
             <v-btn
-                prepend-icon="mdi-refresh"
                 variant="outlined"
+                color="secondary"
+                prepend-icon="mdi-refresh"
+                rounded="lg"
+                :loading="loading"
                 @click="loadCategories"
             >
                 Actualizar
@@ -72,8 +77,9 @@ onMounted(loadCategories);
         <v-alert
             v-if="error"
             type="error"
-            class="mb-4"
+            class="mb-5"
             closable
+            rounded="lg"
         >
             {{ error }}
         </v-alert>
@@ -81,44 +87,68 @@ onMounted(loadCategories);
         <v-alert
             v-if="success"
             type="success"
-            class="mb-4"
+            class="mb-5"
             closable
+            rounded="lg"
         >
             {{ success }}
         </v-alert>
 
-        <v-card class="pa-4 mb-6">
-            <v-card-title>Nueva categoría</v-card-title>
+        <v-card class="surface-card pa-5 mb-6">
+            <div class="d-flex align-center ga-3 mb-4">
+                <v-avatar color="red-lighten-5" rounded="lg">
+                    <v-icon color="primary" icon="mdi-shape-plus-outline" />
+                </v-avatar>
+                <div>
+                    <div class="text-h6 font-weight-bold text-secondary">Nueva categoría</div>
+                    <div class="text-body-2 text-medium-emphasis">
+                        Creá una categoría para clasificar tus productos.
+                    </div>
+                </div>
+            </div>
 
             <v-form @submit.prevent="createCategory">
-                <v-text-field
-                    v-model="name"
-                    label="Nombre"
-                    maxlength="120"
-                    required
-                />
-
-                <v-textarea
-                    v-model="description"
-                    label="Descripción"
-                    maxlength="2000"
-                    rows="2"
-                />
-
-                <v-btn
-                    type="submit"
-                    color="primary"
-                    :loading="saving"
-                >
-                    Guardar categoría
-                </v-btn>
+                <v-row>
+                    <v-col cols="12" md="5">
+                        <v-text-field
+                            v-model="name"
+                            label="Nombre"
+                            maxlength="120"
+                            variant="outlined"
+                            rounded="lg"
+                            required
+                        />
+                    </v-col>
+                    <v-col cols="12" md="5">
+                        <v-text-field
+                            v-model="description"
+                            label="Descripción (opcional)"
+                            maxlength="2000"
+                            variant="outlined"
+                            rounded="lg"
+                        />
+                    </v-col>
+                    <v-col cols="12" md="2">
+                        <v-btn
+                            type="submit"
+                            color="primary"
+                            block
+                            size="large"
+                            rounded="lg"
+                            :loading="saving"
+                            :disabled="!name.trim()"
+                        >
+                            Guardar
+                        </v-btn>
+                    </v-col>
+                </v-row>
             </v-form>
         </v-card>
 
-        <v-card>
+        <v-card class="surface-card">
             <v-table>
                 <thead>
-                    <tr>
+                    <tr class="table-header">
                         <th>Nombre</th>
                         <th>Descripción</th>
                     </tr>
@@ -126,8 +156,9 @@ onMounted(loadCategories);
 
                 <tbody>
                     <tr v-if="!loading && categories.length === 0">
-                        <td colspan="2" class="text-center py-6">
-                            No hay categorías registradas.
+                        <td colspan="2" class="text-center py-10 text-medium-emphasis">
+                            <v-icon icon="mdi-shape-outline" size="34" class="mb-2" />
+                            <div>No hay categorías todavía.</div>
                         </td>
                     </tr>
 
@@ -135,8 +166,8 @@ onMounted(loadCategories);
                         v-for="category in categories"
                         :key="category.id"
                     >
-                        <td>{{ category.name }}</td>
-                        <td>{{ category.description || '—' }}</td>
+                        <td class="font-weight-medium text-secondary">{{ category.name }}</td>
+                        <td class="text-medium-emphasis">{{ category.description || '—' }}</td>
                     </tr>
                 </tbody>
             </v-table>
@@ -146,5 +177,5 @@ onMounted(loadCategories);
                 indeterminate
             />
         </v-card>
-    </v-container>
+    </div>
 </template>

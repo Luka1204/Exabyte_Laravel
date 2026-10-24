@@ -4,16 +4,23 @@
 
 | Módulo/capa | Responsabilidad actual | Estado |
 |---|---|---|
-| Identity | Login JWT, refresh opaco rotativo, detección de reuso y revocación por sesión | Parcial; sin registro, recuperación, membresías ni roles |
-| Tenancy | Alta/listado de empresas; owner puede listar miembros, cambiar roles member/manager y quitar membresías no-owner | Parcial; no hay invitaciones/altas de usuarios ni transferencia de ownership |
-| Catalog | Listado paginado y alta de categorías con validación, repositorio Eloquent y policy por rol | Parcial; scope por empresa y policy para categorías implementados; productos y códigos de barras pendientes |
+| Identity | Login JWT, refresh opaco rotativo, detección de reuso y revocación por sesión | Parcial; sesión en memoria, sin registro ni recuperación de cuenta |
+| Tenancy | Alta/listado de empresas; owner puede listar miembros, cambiar roles member/manager y quitar membresías no-owner | Parcial; sin invitaciones/altas de usuarios ni transferencia de ownership |
+| Catalog | Categorías y productos tenant-scoped; SKU/código de barras únicos por empresa; precio e impuesto validados | MVP implementado para alta/listado; sin importación/exportación |
+| Inventory | Saldos por producto/empresa, libro paginado de movimientos y ajustes idempotentes | MVP implementado; sin sucursales/depósitos ni compras/recepciones |
+| CashManagement | Una caja abierta por empresa; apertura, cierre y diferencia de arqueo | MVP implementado; caja ligada a empresa, no a terminal/sucursal |
+| Sales/POS | Venta en efectivo, descuento de stock, idempotencia, ticket, anulación y devolución parcial/total trazable | MVP implementado; sin otros medios de pago ni reportes |
 | Modelos compartidos | `User` y `Category` en `app/Models` | Fuera de los límites funcionales; no mover masivamente sin migración coordinada |
 | Framework | Rutas, proveedores Laravel, cache, sesiones y colas | Infraestructura del monolito |
-| Frontend Identity | Login, refresh automático y estado de sesión en Pinia | Parcial; estado solo en memoria, sin recuperación de cuenta |
-| Frontend Catalog | Pantalla y servicios de categorías | Parcial; consume API real |
+| Frontend Identity/Tenancy | Login, refresh automático, selector de empresa y gestión de membresías | Parcial; sesión en memoria, sin registro ni recuperación |
+| Frontend Catalog | Categorías y productos con validación de API y presentación de estados vacíos/errores | MVP implementado |
+| Frontend Inventory | Saldos, ajuste de stock y consulta de movimientos recientes | MVP implementado |
+| Frontend Sales/POS | Búsqueda por nombre/SKU, lector HID configurable (Enter/Tab/manual), carrito, caja, venta, historial, anulación y devolución autorizadas | MVP implementado; interfaz en tema rojo/blanco/azul oscuro |
+| Reporting | Resumen por rango de fechas de ventas válidas, devoluciones, anulaciones, neto y ticket promedio | Resumen tenant-scoped implementado; faltan reportes de inventario/compras/caja |
 
-No existen aún autorización granular por rol/permisos, suscripciones, inventario o
-ventas.
+Siguen pendientes autorización granular más allá de las policies actuales,
+suscripciones, compras, sucursales/depósitos, pagos no-efectivo, reportes de
+inventario/compras/caja y recuperación/registro de cuentas.
 
 ## Estructura objetivo del backend
 

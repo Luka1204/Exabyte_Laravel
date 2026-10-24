@@ -68,7 +68,7 @@ pendiente hasta su integración real.
 ## Fase 4 — Catálogo y partes comerciales
 
 - [x] Añadir scope tenant a categorías; filas existentes permanecen sin asignación.
-- [ ] Implementar productos, categorías, SKU, códigos de barras, precios e impuestos.
+- [x] Implementar productos, categorías, SKU, códigos de barras, precios e impuestos para el flujo MVP.
 - [ ] Implementar clientes y proveedores con reglas de identificación/duplicidad.
 - [ ] Incorporar importación/exportación controlada y pruebas de autorización.
 
@@ -77,20 +77,22 @@ validados en servidor; consultas y exportaciones filtradas por empresa.
 
 ## Fase 5 — Compras e inventario
 
-- [ ] Modelar sucursales, depósitos, existencias y libro de movimientos.
-- [ ] Implementar órdenes/recepciones parciales y movimientos idempotentes.
-- [ ] Definir bloqueos/aislamiento para ajustes y concurrencia de stock.
-- [ ] Implementar anulaciones trazables y actualización controlada de costos.
+- [ ] Modelar sucursales y depósitos; el MVP actual mantiene stock por empresa y producto.
+- [ ] Implementar compras/recepciones parciales; fuera del alcance del corte MVP actual.
+- [x] Implementar saldos, libro de movimientos, ajustes idempotentes y control transaccional de concurrencia.
+- [x] Implementar restitución de stock trazable al anular ventas dentro de la caja abierta.
+- [x] Implementar devoluciones parciales/totales con restitución de stock y reintegro conciliado en caja.
 
 **Criterios de aceptación:** recepción/reintento no duplica movimientos; movimientos
 son la fuente de trazabilidad; pruebas de transacción, tenant y concurrencia.
 
 ## Fase 6 — POS, ventas y caja
 
-- [ ] Implementar terminal/caja, apertura/cierre, arqueo y movimientos de efectivo.
-- [ ] Implementar búsqueda y escaneo HID con sufijo configurable.
-- [ ] Confirmar venta, detalle, pagos y stock dentro de operación consistente.
-- [ ] Añadir idempotencia, tickets internos, devoluciones y anulaciones autorizadas.
+- [x] Implementar apertura/cierre de caja, arqueo y conciliación de efectivo para una caja por empresa.
+- [x] Implementar búsqueda por nombre/SKU y lectura HID con sufijo configurable por estación.
+- [x] Permitir configurar el sufijo del lector HID por estación (Enter, Tab o ingreso manual).
+- [x] Confirmar venta, detalle, pago en efectivo y stock dentro de una operación consistente.
+- [x] Añadir idempotencia, tickets internos y anulación autorizada con restitución de stock/efectivo.
 
 **Criterios de aceptación:** el servidor recalcula totales; venta nunca se confirma
 sin persistir inventario; doble envío es idempotente; devolución respeta cantidades;
@@ -98,8 +100,8 @@ pruebas de lector con entrada de teclado y de caja cerrada.
 
 ## Fase 7 — Reportes
 
-- [ ] Añadir consultas agregadas con paginación/filtros y permisos.
-- [ ] Reportar ventas, inventario, compras, caja y rendimiento.
+- [x] Añadir resumen agregado de ventas/devoluciones/anulaciones con filtro temporal y permiso tenant.
+- [ ] Añadir reportes de inventario, compras, caja y rendimiento.
 - [ ] Medir consultas y agregar índices justificados; prevenir N+1.
 
 **Criterios de aceptación:** cifras derivadas de registros autorizados, filtros

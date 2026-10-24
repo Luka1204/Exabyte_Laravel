@@ -16,6 +16,8 @@ class InventoryMovement extends Model
 
     public const TYPE_SALE_VOID = 'sale_void';
 
+    public const TYPE_SALE_RETURN = 'sale_return';
+
     protected $fillable = [
         'company_id',
         'product_id',

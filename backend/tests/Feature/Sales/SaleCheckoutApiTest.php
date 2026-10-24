@@ -433,4 +433,248 @@ class SaleCheckoutApiTest extends TestCase
             'voided_by' => null,
         ]);
     }
+
+    public function test_owner_can_partially_return_sale_and_reconcile_stock_and_cash(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $product = $this->createProduct($company);
+        $headers = $this->companyHeaders($owner, $company);
+        $cashSessionId = $this->openCash($headers);
+        $sale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($product))
+            ->assertCreated()
+            ->json('data');
+        $returnPayload = [
+            'items' => [[
+                'sale_item_id' => $sale['items'][0]['id'],
+                'quantity' => '1.000',
+            ]],
+            'reason' => 'Producto sin usar',
+            'idempotency_key' => (string) Str::uuid(),
+        ];
+
+        $response = $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $returnPayload)
+            ->assertCreated()
+            ->assertJsonPath('data.sale_id', $sale['id'])
+            ->assertJsonPath('data.total', '121.00')
+            ->assertJsonPath('data.items.0.quantity', '1.000')
+            ->assertJsonPath('data.items.0.refund_amount', '121.00');
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale['id'],
+            'status' => 'partially_returned',
+        ]);
+        $this->assertDatabaseHas('inventory_balances', [
+            'company_id' => $company->id,
+            'product_id' => $product->id,
+            'quantity' => '4.000',
+        ]);
+        $this->assertDatabaseHas('cash_sessions', [
+            'id' => $cashSessionId,
+            'expected_cash' => '171.00',
+        ]);
+        $this->assertDatabaseHas('inventory_movements', [
+            'company_id' => $company->id,
+            'product_id' => $product->id,
+            'sale_id' => $sale['id'],
+            'type' => 'sale_return',
+            'quantity_delta' => '1.000',
+        ]);
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $returnPayload)
+            ->assertOk()
+            ->assertJsonPath('data.total', '121.00')
+            ->assertJsonPath('replayed', true);
+        $this->assertDatabaseCount('sale_returns', 1);
+
+        $secondReturn = $returnPayload;
+        $secondReturn['idempotency_key'] = (string) Str::uuid();
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $secondReturn)
+            ->assertCreated()
+            ->assertJsonPath('data.total', '121.00');
+
+        $this->assertDatabaseHas('sales', [
+            'id' => $sale['id'],
+            'status' => 'returned',
+        ]);
+        $this->assertDatabaseHas('inventory_balances', [
+            'product_id' => $product->id,
+            'quantity' => '5.000',
+        ]);
+        $this->assertDatabaseHas('cash_sessions', [
+            'id' => $cashSessionId,
+            'expected_cash' => '50.00',
+        ]);
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/cash/session/{$cashSessionId}/close", [
+                'counted_cash' => '50.00',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.expected_cash', '50.00')
+            ->assertJsonPath('data.difference', '0.00');
+    }
+
+    public function test_sale_return_rejects_overreturn_and_members_without_manager_role(): void
+    {
+        $owner = $this->createUser();
+        $member = $this->createUser();
+        $company = $this->createCompany($owner);
+        $company->memberships()->attach($member->id, ['role' => 'member']);
+        $product = $this->createProduct($company);
+        $headers = $this->companyHeaders($owner, $company);
+        $this->openCash($headers);
+        $sale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($product))
+            ->assertCreated()
+            ->json('data');
+        $returnPayload = [
+            'items' => [[
+                'sale_item_id' => $sale['items'][0]['id'],
+                'quantity' => '1.000',
+            ]],
+            'reason' => 'Devolución parcial',
+            'idempotency_key' => (string) Str::uuid(),
+        ];
+
+        $this->withHeaders($this->companyHeaders($member, $company))
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $returnPayload)
+            ->assertForbidden();
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $returnPayload)
+            ->assertCreated();
+
+        $overreturn = $returnPayload;
+        $overreturn['idempotency_key'] = (string) Str::uuid();
+        $overreturn['items'][0]['quantity'] = '2.000';
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", $overreturn)
+            ->assertUnprocessable();
+
+        $this->assertDatabaseCount('sale_returns', 1);
+        $this->assertDatabaseHas('inventory_balances', [
+            'product_id' => $product->id,
+            'quantity' => '4.000',
+        ]);
+    }
+
+    public function test_sale_return_rejects_items_from_another_sale(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $firstProduct = $this->createProduct($company, 'SKU-001');
+        $secondProduct = $this->createProduct($company, 'SKU-002');
+        $headers = $this->companyHeaders($owner, $company);
+        $this->openCash($headers);
+        $firstSale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($firstProduct))
+            ->assertCreated()
+            ->json('data');
+        $secondSale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($secondProduct))
+            ->assertCreated()
+            ->json('data');
+
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$firstSale['id']}/returns", [
+                'items' => [[
+                    'sale_item_id' => $secondSale['items'][0]['id'],
+                    'quantity' => '1.000',
+                ]],
+                'reason' => 'Artículo incorrecto',
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertUnprocessable();
+
+        $this->assertDatabaseCount('sale_returns', 0);
+    }
+
+    public function test_sales_report_reconciles_sales_returns_and_voids_within_tenant_and_date_range(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner, 'Empresa del reporte');
+        $otherCompany = $this->createCompany($owner, 'Otra empresa');
+        $product = $this->createProduct($company);
+        $otherProduct = $this->createProduct($otherCompany);
+        $headers = $this->companyHeaders($owner, $company);
+        $this->openCash($headers);
+
+        $returnedSale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($product))
+            ->assertCreated()
+            ->json('data');
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$returnedSale['id']}/returns", [
+                'items' => [[
+                    'sale_item_id' => $returnedSale['items'][0]['id'],
+                    'quantity' => '1.000',
+                ]],
+                'reason' => 'Devolución parcial',
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertCreated();
+
+        $voidedSaleId = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($product, [
+                'idempotency_key' => (string) Str::uuid(),
+            ]))
+            ->assertCreated()
+            ->json('data.id');
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$voidedSaleId}/void", ['reason' => 'Venta duplicada'])
+            ->assertOk();
+
+        $this->openCash($this->companyHeaders($owner, $otherCompany));
+        $this->withHeaders($this->companyHeaders($owner, $otherCompany))
+            ->postJson('/api/v1/sales', $this->salePayload($otherProduct))
+            ->assertCreated();
+
+        $today = now()->toDateString();
+        $this->withHeaders($headers)
+            ->getJson("/api/v1/reports/sales?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.sales_count', 1)
+            ->assertJsonPath('data.sales_total', '242.00')
+            ->assertJsonPath('data.returns_count', 1)
+            ->assertJsonPath('data.returns_total', '121.00')
+            ->assertJsonPath('data.voided_count', 1)
+            ->assertJsonPath('data.voided_total', '242.00')
+            ->assertJsonPath('data.net_sales', '121.00')
+            ->assertJsonPath('data.average_ticket', '242.00');
+
+        $future = now()->addDay()->toDateString();
+        $this->withHeaders($headers)
+            ->getJson("/api/v1/reports/sales?from={$future}&to={$future}")
+            ->assertOk()
+            ->assertJsonPath('data.sales_count', 0)
+            ->assertJsonPath('data.net_sales', '0.00');
+
+        $this->withHeaders($this->companyHeaders($owner, $otherCompany))
+            ->getJson("/api/v1/reports/sales?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.sales_count', 1)
+            ->assertJsonPath('data.returns_count', 0)
+            ->assertJsonPath('data.net_sales', '242.00');
+    }
+
+    public function test_sales_report_requires_a_valid_date_range_and_company_membership(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $headers = $this->companyHeaders($owner, $company);
+        $this->withHeaders($headers)
+            ->getJson('/api/v1/reports/sales?from=2026-10-24&to=2026-10-23')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('to');
+
+        $this->withToken($this->tokenFor($owner))
+            ->withHeader('X-Company-ID', '')
+            ->getJson('/api/v1/reports/sales')
+            ->assertBadRequest();
+    }
 }

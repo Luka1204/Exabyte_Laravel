@@ -35,10 +35,15 @@ class CloseCashSession
             }
 
             $salesTotalCents = $session->sales()
-                ->where('status', 'completed')
+                ->whereIn('status', ['completed', 'partially_returned', 'returned'])
                 ->pluck('total')
                 ->sum(fn (string $total): int => self::toCents($total));
-            $expectedCents = self::toCents($session->opening_amount) + $salesTotalCents;
+            $returnsTotalCents = $session->returns()
+                ->pluck('total')
+                ->sum(fn (string $total): int => self::toCents($total));
+            $expectedCents = self::toCents($session->opening_amount)
+                + $salesTotalCents
+                - $returnsTotalCents;
             $countedCents = self::toCents($countedCash);
 
             $session->expected_cash = self::fromCents($expectedCents);

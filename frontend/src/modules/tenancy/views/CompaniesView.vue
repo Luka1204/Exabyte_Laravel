@@ -123,40 +123,63 @@ function errorMessage(exception: unknown, fallback: string): string {
 </script>
 
 <template>
-    <v-container>
-        <h1 class="text-h4 mb-6">Empresas</h1>
+    <div class="page-container">
+        <div class="page-heading">
+            <div>
+                <span class="eyebrow">Organización</span>
+                <h1>Empresas</h1>
+                <p>Administrá tus espacios de trabajo y sus miembros.</p>
+            </div>
+        </div>
 
         <v-alert
             v-if="error"
             type="error"
-            class="mb-4"
+            class="mb-5"
+            rounded="lg"
         >
             {{ error }}
         </v-alert>
 
-        <v-card v-if="auth.companies.length" class="mb-6">
-            <v-list>
+        <v-card v-if="auth.companies.length" class="surface-card mb-6">
+            <v-card-title class="pa-5 text-secondary">Tus empresas</v-card-title>
+            <v-divider />
+            <v-list class="py-2">
                 <v-list-item
                     v-for="company in auth.companies"
                     :key="company.id"
-                    :title="company.name"
-                    :subtitle="`Rol: ${company.role}`"
+                    rounded="lg"
+                    class="mx-3 my-1"
                 >
+                    <template #prepend>
+                        <v-avatar color="blue-lighten-5" rounded="lg">
+                            <v-icon color="info" icon="mdi-domain" />
+                        </v-avatar>
+                    </template>
+                    <v-list-item-title class="font-weight-bold text-secondary">
+                        {{ company.name }}
+                    </v-list-item-title>
+                    <v-list-item-subtitle>
+                        Rol: {{ company.role }}
+                    </v-list-item-subtitle>
                     <template #append>
                         <v-btn
                             v-if="company.role === 'owner'"
-                            variant="text"
-                            class="mr-2"
+                            variant="outlined"
+                            color="secondary"
+                            rounded="lg"
+                            class="mr-3"
                             @click="manageMembers(company.id)"
                         >
                             Administrar miembros
                         </v-btn>
                         <v-btn
                             color="primary"
+                            rounded="lg"
                             :disabled="auth.activeCompanyId === company.id"
                             @click="useCompany(company.id)"
                         >
-                            {{ auth.activeCompanyId === company.id ? 'Seleccionada' : 'Usar empresa' }}
+                            {{ auth.activeCompanyId === company.id ? 'En uso' : 'Usar empresa' }}
                         </v-btn>
                     </template>
                 </v-list-item>
@@ -164,8 +187,8 @@ function errorMessage(exception: unknown, fallback: string): string {
         </v-card>
 
         <v-dialog v-model="memberDialog" max-width="760">
-            <v-card>
-                <v-card-title>Miembros de la empresa</v-card-title>
+            <v-card class="surface-card">
+                <v-card-title class="pa-5 text-secondary">Miembros de la empresa</v-card-title>
                 <v-card-text>
                     <v-alert v-if="memberError" type="error" class="mb-4">
                         {{ memberError }}
@@ -224,8 +247,8 @@ function errorMessage(exception: unknown, fallback: string): string {
             max-width="440"
             @update:model-value="!$event && (memberToRemove = null)"
         >
-            <v-card>
-                <v-card-title>Quitar miembro</v-card-title>
+            <v-card class="surface-card">
+                <v-card-title class="pa-5 text-secondary">Quitar miembro</v-card-title>
                 <v-card-text>
                     ¿Querés quitar a {{ memberToRemove?.name }} de esta empresa?
                 </v-card-text>
@@ -245,18 +268,31 @@ function errorMessage(exception: unknown, fallback: string): string {
             </v-card>
         </v-dialog>
 
-        <v-card class="pa-4">
-            <v-card-title>Nueva empresa</v-card-title>
+        <v-card class="surface-card pa-5">
+            <div class="d-flex align-center ga-3 mb-4">
+                <v-avatar color="red-lighten-5" rounded="lg">
+                    <v-icon color="primary" icon="mdi-domain-plus" />
+                </v-avatar>
+                <div>
+                    <div class="text-h6 font-weight-bold text-secondary">Nueva empresa</div>
+                    <div class="text-body-2 text-medium-emphasis">
+                        Creá un nuevo espacio de trabajo para tu negocio.
+                    </div>
+                </div>
+            </div>
             <v-form @submit.prevent="createCompany">
                 <v-text-field
                     v-model="name"
                     label="Nombre comercial"
                     maxlength="160"
+                    variant="outlined"
+                    rounded="lg"
                     required
                 />
                 <v-btn
                     type="submit"
                     color="primary"
+                    rounded="lg"
                     :loading="saving"
                     :disabled="!name.trim()"
                 >
@@ -264,5 +300,5 @@ function errorMessage(exception: unknown, fallback: string): string {
                 </v-btn>
             </v-form>
         </v-card>
-    </v-container>
+    </div>
 </template>

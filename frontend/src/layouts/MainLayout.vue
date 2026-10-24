@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../modules/identity/stores/authStore';
 
 const auth = useAuthStore();
 const router = useRouter();
+const drawer = ref(true);
 
 async function logout() {
     await auth.logout();
@@ -20,21 +22,42 @@ async function selectCompany(companyId: number) {
 </script>
 
 <template>
-    <v-app>
-        <v-navigation-drawer>
-            <v-list nav>
+    <v-app class="app-shell">
+        <v-navigation-drawer v-model="drawer" class="nav-drawer" width="260">
+            <div class="d-flex align-center ga-3 px-5 py-6">
+                <span class="brand-mark">EX</span>
+                <div>
+                    <div class="text-h6 font-weight-bold text-secondary">Exabyte</div>
+                    <div class="text-caption text-medium-emphasis">Gestión comercial</div>
+                </div>
+            </div>
+            <div class="nav-section-label">Espacio de trabajo</div>
+            <v-list nav density="comfortable">
                 <v-list-item
-                    prepend-icon="mdi-view-dashboard"
-                    title="Inicio"
-                    to="/"
+                    prepend-icon="mdi-point-of-sale"
+                    title="Punto de venta"
+                    to="/sales"
                 />
-
                 <v-list-item
-                    prepend-icon="mdi-shape"
+                    prepend-icon="mdi-package-variant-closed"
+                    title="Productos"
+                    to="/products"
+                />
+                <v-list-item
+                    prepend-icon="mdi-warehouse"
+                    title="Inventario"
+                    to="/inventory"
+                />
+                <v-list-item
+                    prepend-icon="mdi-shape-outline"
                     title="Categorías"
                     to="/categories"
                 />
-
+                <v-list-item
+                    prepend-icon="mdi-chart-box-outline"
+                    title="Reportes"
+                    to="/reports"
+                />
                 <v-list-item
                     prepend-icon="mdi-domain"
                     title="Empresas"
@@ -43,7 +66,11 @@ async function selectCompany(companyId: number) {
             </v-list>
         </v-navigation-drawer>
 
-        <v-app-bar title="Exabyte">
+        <v-app-bar class="app-bar" flat>
+            <v-app-bar-nav-icon aria-label="Abrir navegación" @click="drawer = !drawer" />
+            <v-toolbar-title class="text-subtitle-1 font-weight-bold text-secondary">
+                {{ auth.activeCompany?.name ?? 'Seleccioná una empresa' }}
+            </v-toolbar-title>
             <template #append>
                 <v-select
                     v-if="auth.companies.length > 0"
@@ -54,19 +81,31 @@ async function selectCompany(companyId: number) {
                     label="Empresa"
                     density="compact"
                     hide-details
-                    class="mr-4"
+                    class="mr-5"
+                    style="max-width: 220px"
                     @update:model-value="selectCompany"
                 />
 
-                <span class="mr-3">
-                    {{ auth.user?.name }}
-                </span>
-
-                <v-btn
-                    icon="mdi-logout"
-                    aria-label="Cerrar sesión"
-                    @click="logout"
-                />
+                <v-menu>
+                    <template #activator="{ props }">
+                        <v-btn v-bind="props" variant="text" class="text-none">
+                            <v-avatar color="secondary" size="34" class="mr-2">
+                                <span class="text-caption text-white font-weight-bold">
+                                    {{ auth.user?.name?.slice(0, 1).toUpperCase() }}
+                                </span>
+                            </v-avatar>
+                            <span class="d-none d-sm-inline">{{ auth.user?.name }}</span>
+                            <v-icon end icon="mdi-chevron-down" />
+                        </v-btn>
+                    </template>
+                    <v-list>
+                        <v-list-item
+                            prepend-icon="mdi-logout"
+                            title="Cerrar sesión"
+                            @click="logout"
+                        />
+                    </v-list>
+                </v-menu>
             </template>
         </v-app-bar>
 

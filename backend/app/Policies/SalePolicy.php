@@ -25,4 +25,9 @@ class SalePolicy
             ->wherePivotIn('role', ['owner', 'manager'])
             ->exists();
     }
+
+    public function createReturn(User $user, int $companyId): bool
+    {
+        return $this->void($user, $companyId);
+    }
 }

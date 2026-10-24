@@ -7,6 +7,7 @@ use App\Modules\Identity\Presentation\Http\Controllers\AuthController;
 use App\Modules\Identity\Presentation\Http\Middleware\AuthenticateJwt;
 use App\Modules\Inventory\Presentation\Http\Controllers\InventoryController;
 use App\Modules\Sales\Presentation\Http\Controllers\SaleController;
+use App\Modules\Reporting\Presentation\Http\Controllers\SalesReportController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyMemberController;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyMembership;
@@ -46,6 +47,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/sales', [SaleController::class, 'index']);
             Route::post('/sales', [SaleController::class, 'store']);
             Route::post('/sales/{sale}/void', [SaleController::class, 'void']);
+            Route::post('/sales/{sale}/returns', [SaleController::class, 'storeReturn']);
+            Route::get('/reports/sales', [SalesReportController::class, 'summary']);
         });
     });
 });
