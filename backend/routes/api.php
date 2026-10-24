@@ -49,6 +49,8 @@ Route::prefix('v1')->group(function () {
             Route::post('/sales/{sale}/void', [SaleController::class, 'void']);
             Route::post('/sales/{sale}/returns', [SaleController::class, 'storeReturn']);
             Route::get('/reports/sales', [SalesReportController::class, 'summary']);
+            Route::get('/reports/inventory', [SalesReportController::class, 'inventory']);
+            Route::get('/reports/cash', [SalesReportController::class, 'cash']);
         });
     });
 });

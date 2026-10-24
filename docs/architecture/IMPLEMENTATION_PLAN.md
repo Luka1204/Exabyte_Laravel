@@ -101,11 +101,14 @@ pruebas de lector con entrada de teclado y de caja cerrada.
 ## Fase 7 — Reportes
 
 - [x] Añadir resumen agregado de ventas/devoluciones/anulaciones con filtro temporal y permiso tenant.
-- [ ] Añadir reportes de inventario, compras, caja y rendimiento.
+- [x] Añadir reportes de inventario y caja con filtro temporal y aislamiento por empresa.
+- [ ] Añadir reporte de compras cuando se implemente el flujo de compras/recepciones.
 - [ ] Medir consultas y agregar índices justificados; prevenir N+1.
 
 **Criterios de aceptación:** cifras derivadas de registros autorizados, filtros
-tenant/sucursal, sin datos demo, y resultados contrastados con casos conocidos.
+tenant, sin datos demo, y resultados contrastados con casos conocidos. Los reportes
+actuales de inventario y caja están aislados por empresa; aún no existe dimensión
+de sucursal/depósito ni reporte de compras.
 
 ## Fase 8 — Seguridad y calidad
 

@@ -401,6 +401,97 @@ paths:
           description: El usuario no pertenece a la empresa seleccionada.
         "422":
           $ref: "#/components/responses/ValidationError"
+  /reports/inventory:
+    get:
+      summary: Resumen de inventario y movimientos
+      description: >
+        Totales de productos activos y saldos con stock actual, junto con el
+        conteo de movimientos del período. Aislado por empresa activa.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Company-ID
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Inventario actual y movimientos en el período indicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/InventorySummary"
+        "400":
+          description: Falta una empresa activa válida.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          description: El usuario no pertenece a la empresa seleccionada.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /reports/cash:
+    get:
+      summary: Resumen de cajas y arqueos
+      description: >
+        Totales de sesiones abiertas durante el período, ventas, devoluciones
+        y conciliación de efectivo. El efectivo contado y la diferencia solo
+        consideran sesiones cerradas. Aislado por empresa activa.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Company-ID
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Resumen de caja para el período indicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/CashSummary"
+        "400":
+          description: Falta una empresa activa válida.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          description: El usuario no pertenece a la empresa seleccionada.
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /sales/{sale}/returns:
     parameters:
       - name: sale
@@ -625,6 +716,85 @@ components:
         average_ticket:
           type: string
           pattern: "^[0-9]+\\.[0-9]{2}$"
+    InventorySummary:
+      type: object
+      required:
+        - from
+        - to
+        - products_count
+        - active_products_count
+        - products_with_stock
+        - out_of_stock_products
+        - movements
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        products_count:
+          type: integer
+        active_products_count:
+          type: integer
+        products_with_stock:
+          type: integer
+        out_of_stock_products:
+          type: integer
+        movements:
+          type: object
+          required: [adjustment, sale, sale_void, sale_return]
+          properties:
+            adjustment:
+              type: integer
+            sale:
+              type: integer
+            sale_void:
+              type: integer
+            sale_return:
+              type: integer
+    CashSummary:
+      type: object
+      required:
+        - from
+        - to
+        - sessions_count
+        - closed_sessions_count
+        - opening_total
+        - sales_total
+        - returns_total
+        - expected_cash_total
+        - counted_cash_total
+        - difference_total
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        sessions_count:
+          type: integer
+        closed_sessions_count:
+          type: integer
+        opening_total:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        sales_total:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        returns_total:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        expected_cash_total:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        counted_cash_total:
+          type: string
+          pattern: "^[0-9]+\\.[0-9]{2}$"
+        difference_total:
+          type: string
+          pattern: "^-?[0-9]+\\.[0-9]{2}$"
     Error:
       type: object
       properties:

@@ -52,4 +52,28 @@ describe('sales report service tenant context', () => {
             }),
         });
     });
+
+    it('requests inventory and cash reports with tenant headers and date filters', async () => {
+        vi.mocked(http.get)
+            .mockResolvedValueOnce({ data: { data: { products_count: 4 } } })
+            .mockResolvedValueOnce({ data: { data: { sessions_count: 2 } } });
+
+        await salesReportService.inventory('2026-10-01', '2026-10-23');
+        await salesReportService.cash('2026-10-01', '2026-10-23');
+
+        expect(http.get).toHaveBeenNthCalledWith(1, '/reports/inventory', {
+            params: { from: '2026-10-01', to: '2026-10-23' },
+            headers: expect.objectContaining({
+                Authorization: 'Bearer access-token',
+                'X-Company-ID': '11',
+            }),
+        });
+        expect(http.get).toHaveBeenNthCalledWith(2, '/reports/cash', {
+            params: { from: '2026-10-01', to: '2026-10-23' },
+            headers: expect.objectContaining({
+                Authorization: 'Bearer access-token',
+                'X-Company-ID': '11',
+            }),
+        });
+    });
 });

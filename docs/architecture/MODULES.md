@@ -9,18 +9,18 @@
 | Catalog | Categorías y productos tenant-scoped; SKU/código de barras únicos por empresa; precio e impuesto validados | MVP implementado para alta/listado; sin importación/exportación |
 | Inventory | Saldos por producto/empresa, libro paginado de movimientos y ajustes idempotentes | MVP implementado; sin sucursales/depósitos ni compras/recepciones |
 | CashManagement | Una caja abierta por empresa; apertura, cierre y diferencia de arqueo | MVP implementado; caja ligada a empresa, no a terminal/sucursal |
-| Sales/POS | Venta en efectivo, descuento de stock, idempotencia, ticket, anulación y devolución parcial/total trazable | MVP implementado; sin otros medios de pago ni reportes |
+| Sales/POS | Venta en efectivo, descuento de stock, idempotencia, ticket, anulación y devolución parcial/total trazable | MVP implementado; sin otros medios de pago |
 | Modelos compartidos | `User` y `Category` en `app/Models` | Fuera de los límites funcionales; no mover masivamente sin migración coordinada |
 | Framework | Rutas, proveedores Laravel, cache, sesiones y colas | Infraestructura del monolito |
 | Frontend Identity/Tenancy | Login, refresh automático, selector de empresa y gestión de membresías | Parcial; sesión en memoria, sin registro ni recuperación |
 | Frontend Catalog | Categorías y productos con validación de API y presentación de estados vacíos/errores | MVP implementado |
 | Frontend Inventory | Saldos, ajuste de stock y consulta de movimientos recientes | MVP implementado |
 | Frontend Sales/POS | Búsqueda por nombre/SKU, lector HID configurable (Enter/Tab/manual), carrito, caja, venta, historial, anulación y devolución autorizadas | MVP implementado; interfaz en tema rojo/blanco/azul oscuro |
-| Reporting | Resumen por rango de fechas de ventas válidas, devoluciones, anulaciones, neto y ticket promedio | Resumen tenant-scoped implementado; faltan reportes de inventario/compras/caja |
+| Reporting | Resúmenes por rango de fechas de ventas, inventario (productos/saldos y movimientos) y caja (sesiones, ventas, devoluciones y arqueos) | Reportes tenant-scoped de ventas, inventario y caja implementados; pendiente compras y optimización medida |
 
 Siguen pendientes autorización granular más allá de las policies actuales,
-suscripciones, compras, sucursales/depósitos, pagos no-efectivo, reportes de
-inventario/compras/caja y recuperación/registro de cuentas.
+suscripciones, compras, sucursales/depósitos, pagos no-efectivo, reporte de compras
+y recuperación/registro de cuentas.
 
 ## Estructura objetivo del backend
 

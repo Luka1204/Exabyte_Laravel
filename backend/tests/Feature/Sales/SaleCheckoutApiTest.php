@@ -677,4 +677,79 @@ class SaleCheckoutApiTest extends TestCase
             ->getJson('/api/v1/reports/sales')
             ->assertBadRequest();
     }
+
+    public function test_inventory_and_cash_reports_are_company_scoped_and_reconcile_operations(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner, 'Empresa principal');
+        $otherCompany = $this->createCompany($owner, 'Otra empresa');
+        $product = $this->createProduct($company);
+        $this->createProduct($otherCompany, 'SKU-OTHER');
+        $headers = $this->companyHeaders($owner, $company);
+        $cashSessionId = $this->openCash($headers);
+        $sale = $this->withHeaders($headers)
+            ->postJson('/api/v1/sales', $this->salePayload($product))
+            ->assertCreated()
+            ->json('data');
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/sales/{$sale['id']}/returns", [
+                'items' => [[
+                    'sale_item_id' => $sale['items'][0]['id'],
+                    'quantity' => '1.000',
+                ]],
+                'reason' => 'Reintegro de prueba',
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertCreated();
+        $this->withHeaders($headers)
+            ->postJson('/api/v1/inventory/adjustments', [
+                'product_id' => $product->id,
+                'quantity_delta' => '1.000',
+                'reason' => 'Reposición',
+                'idempotency_key' => (string) Str::uuid(),
+            ])
+            ->assertCreated();
+        $this->withHeaders($headers)
+            ->postJson("/api/v1/cash/session/{$cashSessionId}/close", [
+                'counted_cash' => '171.00',
+            ])
+            ->assertOk();
+
+        $today = now()->toDateString();
+        $this->withHeaders($headers)
+            ->getJson("/api/v1/reports/inventory?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.products_count', 1)
+            ->assertJsonPath('data.active_products_count', 1)
+            ->assertJsonPath('data.products_with_stock', 1)
+            ->assertJsonPath('data.out_of_stock_products', 0)
+            ->assertJsonPath('data.movements.adjustment', 1)
+            ->assertJsonPath('data.movements.sale', 1)
+            ->assertJsonPath('data.movements.sale_void', 0)
+            ->assertJsonPath('data.movements.sale_return', 1);
+
+        $this->withHeaders($headers)
+            ->getJson("/api/v1/reports/cash?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.sessions_count', 1)
+            ->assertJsonPath('data.closed_sessions_count', 1)
+            ->assertJsonPath('data.opening_total', '50.00')
+            ->assertJsonPath('data.sales_total', '242.00')
+            ->assertJsonPath('data.returns_total', '121.00')
+            ->assertJsonPath('data.expected_cash_total', '171.00')
+            ->assertJsonPath('data.counted_cash_total', '171.00')
+            ->assertJsonPath('data.difference_total', '0.00');
+
+        $otherHeaders = $this->companyHeaders($owner, $otherCompany);
+        $this->withHeaders($otherHeaders)
+            ->getJson("/api/v1/reports/inventory?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.products_count', 1)
+            ->assertJsonPath('data.movements.sale', 0);
+        $this->withHeaders($otherHeaders)
+            ->getJson("/api/v1/reports/cash?from={$today}&to={$today}")
+            ->assertOk()
+            ->assertJsonPath('data.sessions_count', 0)
+            ->assertJsonPath('data.sales_total', '0.00');
+    }
 }
