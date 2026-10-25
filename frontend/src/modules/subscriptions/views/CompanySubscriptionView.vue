@@ -5,15 +5,21 @@ import { useAuthStore } from '../../identity/stores/authStore';
 import {
     subscriptionService,
     type CompanySubscription,
+    type Plan,
 } from '../services/subscriptionService';
 
 const auth = useAuthStore();
 const subscription = ref<CompanySubscription | null>(null);
+const plans = ref<Plan[]>([]);
+const selectedPlanId = ref<number | null>(null);
+const billingPeriod = ref<'monthly' | 'annual'>('monthly');
 const loading = ref(false);
 const canceling = ref(false);
+const changing = ref(false);
 const error = ref('');
 const success = ref('');
 const cancelDialog = ref(false);
+const changeableStatuses = ['trialing', 'active', 'past_due', 'grace'];
 
 async function load() {
     const companyId = auth.activeCompanyId;
@@ -25,11 +31,45 @@ async function load() {
     loading.value = true;
     error.value = '';
     try {
-        subscription.value = await subscriptionService.current(companyId);
+        const [current, availablePlans] = await Promise.all([
+            subscriptionService.current(companyId),
+            subscriptionService.plans(),
+        ]);
+        subscription.value = current;
+        plans.value = availablePlans;
+        if (current) {
+            selectedPlanId.value = current.plan_id;
+            billingPeriod.value = current.billing_period;
+        }
     } catch (exception: unknown) {
-        error.value = apiErrorMessage(exception, 'No se pudo cargar la suscripción.');
+        error.value = apiErrorMessage(exception, 'No se pudo cargar la suscripción o los planes.');
     } finally {
         loading.value = false;
+    }
+}
+
+async function changePlan() {
+    if (!auth.activeCompanyId || selectedPlanId.value === null) {
+        return;
+    }
+
+    changing.value = true;
+    error.value = '';
+    success.value = '';
+    try {
+        subscription.value = await subscriptionService.change(
+            auth.activeCompanyId,
+            selectedPlanId.value,
+            billingPeriod.value,
+        );
+        success.value = 'El contrato se actualizó correctamente. El historial de pagos se conserva.';
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(
+            exception,
+            'No se pudo actualizar el contrato. El plan, período y pagos anteriores se conservan.',
+        );
+    } finally {
+        changing.value = false;
     }
 }
 
@@ -131,6 +171,46 @@ onMounted(load);
                     </v-btn>
                     <v-btn variant="text" to="/plans">Consultar planes</v-btn>
                 </div>
+                <v-card
+                    v-if="auth.activeCompany?.role === 'owner' && changeableStatuses.includes(subscription.status)"
+                    variant="tonal"
+                    class="mt-6 pa-4"
+                >
+                    <h3 class="text-subtitle-1 font-weight-bold mb-3">Cambiar plan o período</h3>
+                    <v-row>
+                        <v-col cols="12" sm="6">
+                            <v-select
+                                v-model="selectedPlanId"
+                                :items="plans"
+                                item-title="name"
+                                item-value="id"
+                                label="Plan"
+                                :disabled="changing"
+                            />
+                        </v-col>
+                        <v-col cols="12" sm="6">
+                            <v-btn-toggle
+                                v-model="billingPeriod"
+                                mandatory
+                                color="primary"
+                                rounded="lg"
+                                :disabled="changing"
+                            >
+                                <v-btn value="monthly">Mensual</v-btn>
+                                <v-btn value="annual">Anual</v-btn>
+                            </v-btn-toggle>
+                        </v-col>
+                    </v-row>
+                    <v-btn
+                        color="primary"
+                        rounded="lg"
+                        :loading="changing"
+                        :disabled="changing || selectedPlanId === null"
+                        @click="changePlan"
+                    >
+                        Actualizar contrato
+                    </v-btn>
+                </v-card>
             </v-card-text>
         </v-card>
 

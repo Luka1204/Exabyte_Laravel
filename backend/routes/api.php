@@ -50,6 +50,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [CompanySubscriptionController::class, 'show']);
                 Route::post('/', [CompanySubscriptionController::class, 'start'])
                     ->middleware('throttle:10,1');
+                Route::put('/', [CompanySubscriptionController::class, 'change'])
+                    ->middleware('throttle:10,1');
                 Route::delete('/', [CompanySubscriptionController::class, 'cancel']);
             });
         Route::get('/companies', [CompanyController::class, 'index']);

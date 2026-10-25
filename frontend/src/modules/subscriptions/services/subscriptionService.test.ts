@@ -53,4 +53,17 @@ describe('subscription service', () => {
         expect(payload).toEqual({ plan_id: 4, billing_period: 'annual' });
         expect(config?.headers?.Authorization).toBeTruthy();
     });
+
+    it('changes the existing subscription with the selected plan and billing period', async () => {
+        vi.mocked(http.put).mockResolvedValue({
+            data: { data: { id: 44, plan_id: 6, billing_period: 'annual', status: 'active' } },
+        });
+
+        await subscriptionService.change(12, 6, 'annual');
+
+        const [url, payload, config] = vi.mocked(http.put).mock.calls[0]!;
+        expect(url).toBe('/companies/12/subscription');
+        expect(payload).toEqual({ plan_id: 6, billing_period: 'annual' });
+        expect(config?.headers?.Authorization).toBeTruthy();
+    });
 });

@@ -15,6 +15,7 @@ class Subscription extends Model
         'billing_user_id',
         'plan_id',
         'terms_snapshot',
+        'terms_history',
         'billing_period',
         'status',
         'provider',
@@ -35,6 +36,7 @@ class Subscription extends Model
     {
         return [
             'terms_snapshot' => 'array',
+            'terms_history' => 'array',
             'trial_ends_at' => 'immutable_datetime',
             'current_period_start' => 'immutable_datetime',
             'current_period_end' => 'immutable_datetime',

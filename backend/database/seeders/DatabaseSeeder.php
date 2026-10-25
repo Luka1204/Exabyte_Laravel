@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use LogicException;
 
 class DatabaseSeeder extends Seeder
 {
@@ -14,6 +15,16 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(AdminUserSeeder::class);
+        if (! app()->environment('local', 'testing')) {
+            throw new LogicException(
+                'DatabaseSeeder only installs demo data in local and testing environments.'
+            );
+        }
+
+        $this->call([
+            AdminUserSeeder::class,
+            PlanCatalogSeeder::class,
+            DemoCommerceSeeder::class,
+        ]);
     }
 }

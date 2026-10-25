@@ -3,23 +3,40 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiErrorMessage } from '../../../shared/api/errorMessage';
 import { useAuthStore } from '../../identity/stores/authStore';
-import { subscriptionService, type Plan } from '../services/subscriptionService';
+import {
+    subscriptionService,
+    type CompanySubscription,
+    type Plan,
+} from '../services/subscriptionService';
 
 const router = useRouter();
 const auth = useAuthStore();
 const plans = ref<Plan[]>([]);
+const subscription = ref<CompanySubscription | null>(null);
 const billingPeriod = ref<'monthly' | 'annual'>('monthly');
 const loading = ref(true);
 const selectingPlan = ref<number | null>(null);
 const error = ref('');
+const success = ref('');
+
+const changeableStatuses = ['trialing', 'active', 'past_due', 'grace'];
+
+function canChangeSubscription() {
+    return subscription.value !== null && changeableStatuses.includes(subscription.value.status);
+}
 
 async function loadPlans() {
     loading.value = true;
     error.value = '';
     try {
         plans.value = await subscriptionService.plans();
+        if (auth.accessToken && auth.activeCompany?.role === 'owner') {
+            subscription.value = await subscriptionService.current(auth.activeCompany.id);
+        } else {
+            subscription.value = null;
+        }
     } catch (exception: unknown) {
-        error.value = apiErrorMessage(exception, 'No se pudieron cargar los planes.');
+        error.value = apiErrorMessage(exception, 'No se pudieron cargar los planes o la suscripción.');
     } finally {
         loading.value = false;
     }
@@ -27,6 +44,7 @@ async function loadPlans() {
 
 async function choosePlan(plan: Plan) {
     error.value = '';
+    success.value = '';
     if (!auth.accessToken) {
         await router.push({
             path: '/register',
@@ -50,6 +68,16 @@ async function choosePlan(plan: Plan) {
 
     selectingPlan.value = plan.id;
     try {
+        if (canChangeSubscription() && subscription.value) {
+            subscription.value = await subscriptionService.change(
+                auth.activeCompany.id,
+                plan.id,
+                billingPeriod.value,
+            );
+            success.value = 'El plan y período del contrato se actualizaron. Se conserva el historial de pagos.';
+            return;
+        }
+
         const result = await subscriptionService.start(
             auth.activeCompany.id,
             plan.id,
@@ -63,7 +91,9 @@ async function choosePlan(plan: Plan) {
     } catch (exception: unknown) {
         error.value = apiErrorMessage(
             exception,
-            'No se pudo iniciar el checkout. Tu contrato pendiente se conserva para reintentar.',
+            canChangeSubscription()
+                ? 'No se pudo actualizar el contrato. El plan, período y pagos anteriores se conservan.'
+                : 'No se pudo iniciar el checkout. Tu contrato pendiente se conserva para reintentar.',
         );
     } finally {
         selectingPlan.value = null;
@@ -117,7 +147,13 @@ onMounted(loadPlans);
         </section>
 
         <v-alert v-if="error" type="error" class="public-content mb-6" rounded="lg">
-            {{ error }}
+            <div class="d-flex align-center justify-space-between flex-wrap ga-3">
+                <span>{{ error }}</span>
+                <v-btn variant="outlined" color="error" @click="loadPlans">Reintentar</v-btn>
+            </div>
+        </v-alert>
+        <v-alert v-if="success" type="success" class="public-content mb-6" rounded="lg">
+            {{ success }}
         </v-alert>
         <section v-if="loading" class="public-content py-12">
             <v-progress-linear indeterminate color="primary" />
@@ -141,9 +177,18 @@ onMounted(loadPlans);
                     </p>
                     <v-divider class="my-5" />
                     <div class="plan-limits">
-                        <div><v-icon icon="mdi-account-group-outline" /> {{ plan.limits.users }} usuarios</div>
-                        <div><v-icon icon="mdi-domain" /> {{ plan.limits.branches }} sucursales</div>
-                        <div><v-icon icon="mdi-cash-register" /> {{ plan.limits.cash_registers }} cajas</div>
+                        <div>
+                            <v-icon icon="mdi-account-group-outline" />
+                            {{ plan.limits.users }} {{ plan.limits.users === 1 ? 'usuario' : 'usuarios' }}
+                        </div>
+                        <div>
+                            <v-icon icon="mdi-domain" />
+                            {{ plan.limits.branches }} {{ plan.limits.branches === 1 ? 'sucursal' : 'sucursales' }}
+                        </div>
+                        <div>
+                            <v-icon icon="mdi-cash-register" />
+                            {{ plan.limits.cash_registers }} {{ plan.limits.cash_registers === 1 ? 'caja' : 'cajas' }}
+                        </div>
                         <div><v-icon icon="mdi-package-variant" /> {{ plan.limits.products ?? 'Sin límite' }} productos</div>
                     </div>
                     <v-list density="compact" class="bg-transparent px-0">
@@ -164,7 +209,7 @@ onMounted(loadPlans);
                         :disabled="selectingPlan !== null && selectingPlan !== plan.id"
                         @click="choosePlan(plan)"
                     >
-                        Elegir plan
+                        {{ canChangeSubscription() ? 'Cambiar a este plan' : 'Elegir plan' }}
                     </v-btn>
                 </v-card-text>
             </v-card>

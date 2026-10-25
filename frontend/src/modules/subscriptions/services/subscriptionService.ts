@@ -94,6 +94,7 @@ export interface PaymentAttempt {
 export interface CompanySubscription {
     id: number;
     company_id: number;
+    plan_id: number;
     billing_period: 'monthly' | 'annual';
     status: string;
     provider_status: string | null;
@@ -188,6 +189,17 @@ export const subscriptionService = {
         );
 
         return response.data;
+    },
+
+    async change(companyId: number, planId: number, billingPeriod: 'monthly' | 'annual') {
+        const auth = useAuthStore();
+        const response = await http.put<{ data: CompanySubscription }>(
+            `/companies/${companyId}/subscription`,
+            { plan_id: planId, billing_period: billingPeriod },
+            { headers: auth.authHeaders() },
+        );
+
+        return response.data.data;
     },
 
     async cancel(companyId: number): Promise<CompanySubscription | null> {

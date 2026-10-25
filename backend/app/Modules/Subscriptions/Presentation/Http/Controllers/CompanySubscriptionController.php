@@ -5,10 +5,12 @@ namespace App\Modules\Subscriptions\Presentation\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoNotConfigured;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoRequestFailed;
+use App\Modules\Subscriptions\Application\UseCases\ChangeSubscription;
 use App\Modules\Subscriptions\Application\UseCases\CancelSubscription;
 use App\Modules\Subscriptions\Application\UseCases\StartSubscription;
 use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\Subscription;
 use App\Modules\Subscriptions\Presentation\Requests\StartSubscriptionRequest;
+use App\Modules\Subscriptions\Presentation\Requests\ChangeSubscriptionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -64,6 +66,32 @@ class CompanySubscriptionController extends Controller
             $company,
             (int) $request->user()->getKey()
         );
+
+        return response()->json(['data' => $subscription]);
+    }
+
+    public function change(
+        ChangeSubscriptionRequest $request,
+        int $company,
+        ChangeSubscription $useCase
+    ): JsonResponse {
+        $data = $request->validated();
+
+        try {
+            $subscription = $useCase->execute(
+                $company,
+                (int) $data['plan_id'],
+                $data['billing_period']
+            );
+        } catch (MercadoPagoNotConfigured) {
+            return response()->json([
+                'message' => 'La actualización online no está configurada todavía.',
+            ], Response::HTTP_SERVICE_UNAVAILABLE);
+        } catch (MercadoPagoRequestFailed) {
+            return response()->json([
+                'message' => 'Mercado Pago no pudo actualizar la suscripción. El contrato local no fue modificado.',
+            ], Response::HTTP_BAD_GATEWAY);
+        }
 
         return response()->json(['data' => $subscription]);
     }

@@ -30,6 +30,22 @@ class MercadoPagoSdkGateway implements MercadoPagoGateway
         ];
     }
 
+    public function updatePreapproval(string $id, array $request): array
+    {
+        $preapproval = $this->request(
+            fn () => (new PreApprovalClient())->update($id, $request)
+        );
+
+        if (! $preapproval->id || ! $preapproval->status) {
+            throw new LogicException('Mercado Pago returned an incomplete subscription update response.');
+        }
+
+        return [
+            'id' => (string) $preapproval->id,
+            'status' => (string) $preapproval->status,
+        ];
+    }
+
     public function getPreapproval(string $id): array
     {
         $preapproval = $this->request(

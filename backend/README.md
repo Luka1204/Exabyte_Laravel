@@ -42,6 +42,28 @@ La cuenta predeterminada es `demo@exabyte.local`; usá la contraseña definida e
 idempotente: crea o actualiza esa cuenta y garantiza su membresía owner en la empresa
 configurada.
 
+### Datos de demostración
+
+En `local` y `testing`, `php artisan migrate --seed` también ejecuta:
+
+- `PlanCatalogSeeder`: tres planes activos con importes **ilustrativos**, solo para
+  que el catálogo público tenga contenido al desarrollar. No son precios aprobados
+  para clientes.
+- `DemoCommerceSeeder`: categoría y productos de muestra, saldos y libro de
+  movimientos, una caja cerrada, una venta y una devolución.
+
+Los seeders operativos usan claves estables e inserción idempotente; volver a
+ejecutarlos no reinicia saldos ni sobrescribe operaciones existentes. También
+registran una excepción de acceso local para la empresa de muestra.
+
+No se crean suscripciones, pagos, eventos de Mercado Pago ni usuarios Superadmin
+ficticios: esos registros serían engañosos y podrían confundirse con contratos,
+cobros o permisos reales. Tampoco se siembran refresh tokens, sesiones, trabajos,
+cache ni tokens de recuperación, porque son datos temporales que deben generarse
+durante el uso de la aplicación. Para producción se requiere crear planes aprobados
+desde Superadmin y conceder ese permiso con el comando documentado abajo; `db:seed`
+está bloqueado fuera de `local` y `testing`.
+
 ## Validación
 
 ```powershell

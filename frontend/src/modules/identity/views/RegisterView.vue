@@ -37,7 +37,12 @@ async function submit() {
     loading.value = true;
     error.value = '';
     try {
-        const { valid } = await registrationForm.value!.validate();
+        if (!registrationForm.value) {
+            error.value = 'No se pudo validar el formulario. Actualizá la página e intentá otra vez.';
+            return;
+        }
+
+        const { valid } = await registrationForm.value.validate();
         if (!valid) {
             return;
         }
@@ -71,7 +76,7 @@ async function submit() {
             }
         }
 
-        await router.replace(planId.value ? '/categories' : '/plans');
+        await router.replace(planId.value ? '/subscription' : '/plans');
     } catch (exception: unknown) {
         error.value = apiErrorMessage(exception, 'No se pudo crear la cuenta.');
     } finally {
@@ -149,7 +154,10 @@ async function submit() {
                     autocomplete="new-password"
                     variant="outlined"
                     rounded="lg"
-                    :rules="[(value: string) => value === password || 'Las contraseñas no coinciden.']"
+                    :rules="[
+                        (value: string) => !!value || 'Repetí la contraseña.',
+                        (value: string) => value === password || 'Las contraseñas no coinciden.',
+                    ]"
                     :disabled="loading || registered"
                 />
                 <v-btn

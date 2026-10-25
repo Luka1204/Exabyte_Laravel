@@ -106,6 +106,185 @@ class SubscriptionFlowApiTest extends TestCase
         $this->assertDatabaseCount('subscriptions', 0);
     }
 
+    public function test_company_owner_can_change_the_existing_provider_subscription_with_server_priced_terms(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $currentPlan = $this->createPlan();
+        $targetPlan = $this->createPlan('comercio-plus');
+        $targetPlan->update([
+            'name' => 'Comercio Plus',
+            'monthly_amount' => '12500.00',
+            'annual_amount' => '125000.00',
+            'limits' => ['users' => 8, 'branches' => 2, 'cash_registers' => 2, 'products' => 1200],
+            'entitlements' => ['pos' => true, 'sales_reports' => true],
+        ]);
+        $oldTerms = [
+            'plan_id' => $currentPlan->id,
+            'name' => 'Comercio',
+            'currency' => 'ARS',
+            'billing_period' => 'monthly',
+            'amount' => '9900.00',
+            'limits' => ['users' => 3],
+        ];
+        $subscription = Subscription::query()->create([
+            'company_id' => $company->id,
+            'billing_user_id' => $owner->id,
+            'plan_id' => $currentPlan->id,
+            'terms_snapshot' => $oldTerms,
+            'billing_period' => 'monthly',
+            'status' => 'active',
+            'provider' => 'mercadopago',
+            'provider_status' => 'authorized',
+            'provider_subscription_id' => 'mp-subscription-existing',
+            'external_reference' => (string) Str::uuid(),
+        ]);
+        $subscription->paymentAttempts()->create([
+            'attempt_number' => 1,
+            'kind' => 'initial',
+            'status' => 'paid',
+            'amount' => '9900.00',
+            'currency' => 'ARS',
+            'provider_payment_id' => 'payment-original',
+        ]);
+
+        $gateway = Mockery::mock(MercadoPagoGateway::class);
+        $gateway->shouldReceive('updatePreapproval')
+            ->once()
+            ->with('mp-subscription-existing', [
+                'reason' => 'Comercio Plus',
+                'auto_recurring' => [
+                    'frequency' => 12,
+                    'frequency_type' => 'months',
+                    'transaction_amount' => '125000.00',
+                    'currency_id' => 'ARS',
+                ],
+            ])
+            ->andReturn(['id' => 'mp-subscription-existing', 'status' => 'authorized']);
+        $this->app->instance(MercadoPagoGateway::class, $gateway);
+
+        $this->withToken($this->tokenFor($owner))
+            ->putJson("/api/v1/companies/{$company->id}/subscription", [
+                'plan_id' => $targetPlan->id,
+                'billing_period' => 'annual',
+                'amount' => '0.01',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $subscription->id)
+            ->assertJsonPath('data.plan_id', $targetPlan->id)
+            ->assertJsonPath('data.billing_period', 'annual')
+            ->assertJsonPath('data.terms_snapshot.amount', '125000.00')
+            ->assertJsonPath('data.provider_subscription_id', 'mp-subscription-existing');
+
+        $changed = $subscription->fresh();
+        $this->assertSame($oldTerms, $changed->terms_history[0]['terms']);
+        $this->assertSame('125000.00', $changed->terms_snapshot['amount']);
+        $this->assertSame('annual', $changed->terms_snapshot['billing_period']);
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseCount('payment_attempts', 1);
+        $this->assertDatabaseHas('payment_attempts', [
+            'id' => $subscription->paymentAttempts()->value('id'),
+            'status' => 'paid',
+            'amount' => '9900.00',
+            'provider_payment_id' => 'payment-original',
+        ]);
+    }
+
+    public function test_only_the_company_owner_can_change_a_subscription_and_provider_is_not_called_for_members(): void
+    {
+        $owner = $this->createUser();
+        $member = $this->createUser();
+        $company = $this->createCompany($owner);
+        $company->memberships()->attach($member->id, ['role' => 'member']);
+        $plan = $this->createPlan();
+        $subscription = $this->createActiveSubscription($owner, $company, $plan);
+        $gateway = Mockery::mock(MercadoPagoGateway::class);
+        $gateway->shouldNotReceive('updatePreapproval');
+        $this->app->instance(MercadoPagoGateway::class, $gateway);
+
+        $this->withToken($this->tokenFor($member))
+            ->putJson("/api/v1/companies/{$company->id}/subscription", [
+                'plan_id' => $plan->id,
+                'billing_period' => 'annual',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('monthly', $subscription->fresh()->billing_period);
+    }
+
+    public function test_invalid_or_unavailable_change_choices_are_rejected_before_provider_call(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $plan = $this->createPlan();
+        $subscription = $this->createActiveSubscription($owner, $company, $plan);
+        $unavailable = $this->createPlan('unavailable');
+        $unavailable->update(['is_active' => false]);
+        $gateway = Mockery::mock(MercadoPagoGateway::class);
+        $gateway->shouldNotReceive('updatePreapproval');
+        $this->app->instance(MercadoPagoGateway::class, $gateway);
+        $url = "/api/v1/companies/{$company->id}/subscription";
+        $headers = ['Authorization' => 'Bearer '.$this->tokenFor($owner)];
+
+        $this->withHeaders($headers)
+            ->putJson($url, ['plan_id' => 999999, 'billing_period' => 'monthly'])
+            ->assertUnprocessable();
+        $this->withHeaders($headers)
+            ->putJson($url, ['plan_id' => $plan->id, 'billing_period' => 'weekly'])
+            ->assertUnprocessable();
+        $this->withHeaders($headers)
+            ->putJson($url, ['plan_id' => $unavailable->id, 'billing_period' => 'annual'])
+            ->assertNotFound();
+
+        $this->assertSame($plan->id, $subscription->fresh()->plan_id);
+        $this->assertSame('monthly', $subscription->fresh()->billing_period);
+    }
+
+    public function test_provider_failure_leaves_existing_contract_terms_and_payment_history_unchanged(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $plan = $this->createPlan();
+        $targetPlan = $this->createPlan('comercio-plus');
+        $subscription = $this->createActiveSubscription($owner, $company, $plan);
+        $subscription->forceFill([
+            'terms_history' => [['terms' => ['name' => 'Primer contrato'], 'replaced_at' => '2026-01-01T00:00:00+00:00']],
+        ])->save();
+        $attempt = $subscription->paymentAttempts()->create([
+            'attempt_number' => 1,
+            'kind' => 'initial',
+            'status' => 'paid',
+            'amount' => '9900.00',
+            'currency' => 'ARS',
+            'provider_payment_id' => 'payment-original',
+        ]);
+        $beforeSnapshot = $subscription->fresh()->terms_snapshot;
+        $beforeHistory = $subscription->fresh()->terms_history;
+        $beforeAttempt = $attempt->fresh()->getAttributes();
+        $gateway = Mockery::mock(MercadoPagoGateway::class);
+        $gateway->shouldReceive('updatePreapproval')
+            ->once()
+            ->andThrow(new MercadoPagoRequestFailed(new RuntimeException('provider temporarily unavailable')));
+        $this->app->instance(MercadoPagoGateway::class, $gateway);
+
+        $this->withToken($this->tokenFor($owner))
+            ->putJson("/api/v1/companies/{$company->id}/subscription", [
+                'plan_id' => $targetPlan->id,
+                'billing_period' => 'annual',
+            ])
+            ->assertStatus(502)
+            ->assertJsonPath('message', 'Mercado Pago no pudo actualizar la suscripción. El contrato local no fue modificado.');
+
+        $unchanged = $subscription->fresh();
+        $this->assertSame($plan->id, $unchanged->plan_id);
+        $this->assertSame('monthly', $unchanged->billing_period);
+        $this->assertSame($beforeSnapshot, $unchanged->terms_snapshot);
+        $this->assertSame($beforeHistory, $unchanged->terms_history);
+        $this->assertSame($beforeAttempt, $attempt->fresh()->getAttributes());
+        $this->assertDatabaseCount('subscriptions', 1);
+        $this->assertDatabaseCount('payment_attempts', 1);
+    }
+
     public function test_retry_after_checkout_initialization_failure_keeps_contract_and_attempt_history(): void
     {
         $owner = $this->createUser();
@@ -304,10 +483,10 @@ class SubscriptionFlowApiTest extends TestCase
         ]);
     }
 
-    private function createPlan(): Plan
+    private function createPlan(string $code = 'comercio'): Plan
     {
         return Plan::query()->create([
-            'code' => 'comercio',
+            'code' => $code,
             'name' => 'Comercio',
             'description' => 'Plan comercial',
             'benefits' => ['POS'],
@@ -324,6 +503,29 @@ class SubscriptionFlowApiTest extends TestCase
             'trial_days' => 0,
             'grace_days' => 5,
             'is_active' => true,
+        ]);
+    }
+
+    private function createActiveSubscription(User $owner, Company $company, Plan $plan): Subscription
+    {
+        return Subscription::query()->create([
+            'company_id' => $company->id,
+            'billing_user_id' => $owner->id,
+            'plan_id' => $plan->id,
+            'terms_snapshot' => [
+                'plan_id' => $plan->id,
+                'name' => $plan->name,
+                'currency' => $plan->currency,
+                'billing_period' => 'monthly',
+                'amount' => '9900.00',
+            ],
+            'terms_history' => [],
+            'billing_period' => 'monthly',
+            'status' => 'active',
+            'provider' => 'mercadopago',
+            'provider_status' => 'authorized',
+            'provider_subscription_id' => 'mp-subscription-existing',
+            'external_reference' => (string) Str::uuid(),
         ]);
     }
 

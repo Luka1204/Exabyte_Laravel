@@ -18,6 +18,15 @@ interface MercadoPagoGateway
     public function createPendingPreapproval(array $request): array;
 
     /**
+     * @param array{
+     *     reason: string,
+     *     auto_recurring: array{frequency: int, frequency_type: string, transaction_amount: string, currency_id: string}
+     * } $request
+     * @return array{id: string, status: string}
+     */
+    public function updatePreapproval(string $id, array $request): array;
+
+    /**
      * @return array{id: string, status: string, next_payment_date: ?string}
      */
     public function getPreapproval(string $id): array;

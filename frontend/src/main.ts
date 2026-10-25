@@ -58,7 +58,11 @@ router.beforeEach((to) => {
     }
 
     if (to.meta.guestOnly && auth.accessToken) {
-        return '/categories';
+        if (to.path === '/register') {
+            return '/plans';
+        }
+
+        return auth.activeCompany ? '/categories' : '/companies';
     }
 });
 
