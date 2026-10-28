@@ -8,14 +8,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Company extends Model
 {
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'is_active'];
+
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function memberships(): BelongsToMany
     {
         return $this->belongsToMany(
             User::class,
             'company_memberships'
-        )->withPivot('role')->withTimestamps();
+        )->withPivot('role', 'is_active')->withTimestamps();
     }
-
 }

@@ -34,7 +34,10 @@ class RemoveCompanyMember
             DB::table('company_memberships')
                 ->where('company_id', $company->getKey())
                 ->where('user_id', $userId)
-                ->delete();
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
         }, attempts: 3);
     }
 }

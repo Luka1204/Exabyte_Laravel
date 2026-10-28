@@ -16,6 +16,7 @@ export interface CompanyMember {
     name: string;
     email: string;
     role: CompanyMemberRole;
+    is_active: boolean;
 }
 
 interface MembersResponse {
@@ -53,6 +54,27 @@ export const companyService = {
         return company;
     },
 
+    async update(
+        companyId: number,
+        data: { name?: string; is_active?: boolean },
+    ): Promise<AuthCompany> {
+        const auth = useAuthStore();
+        const response = await http.patch<{
+            data: { id: number; name: string; is_active: boolean };
+        }>(`/companies/${companyId}`, data, { headers: auth.authHeaders() });
+        const updated = response.data.data;
+        const company = auth.companies.find((item) => item.id === companyId);
+        if (company) {
+            auth.setCompanies(auth.companies.map((item) => (
+                item.id === companyId
+                    ? { ...item, name: updated.name, is_active: updated.is_active }
+                    : item
+            )));
+        }
+
+        return { ...updated, role: company?.role ?? 'owner' };
+    },
+
     async listMembers(companyId: number): Promise<CompanyMember[]> {
         const auth = useAuthStore();
         const response = await http.get<MembersResponse>(
@@ -84,5 +106,20 @@ export const companyService = {
             `/companies/${companyId}/members/${memberId}`,
             { headers: auth.authHeaders() },
         );
+    },
+
+    async setMemberActive(
+        companyId: number,
+        memberId: number,
+        isActive: boolean,
+    ): Promise<CompanyMember> {
+        const auth = useAuthStore();
+        const response = await http.patch<MemberResponse>(
+            `/companies/${companyId}/members/${memberId}`,
+            { is_active: isActive },
+            { headers: auth.authHeaders() },
+        );
+
+        return response.data.data;
     },
 };

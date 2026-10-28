@@ -18,7 +18,9 @@ class RequireCompanyOwner
             ], 404);
         }
 
-        $memberships = $request->user()->companies()->whereKey((int) $companyId);
+        $memberships = $request->user()->companies()
+            ->whereKey((int) $companyId)
+            ->wherePivot('is_active', true);
 
         if (! $memberships->exists()) {
             return response()->json([

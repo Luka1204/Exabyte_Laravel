@@ -49,6 +49,12 @@ async function selectCompany(companyId: number) {
                     to="/inventory"
                 />
                 <v-list-item
+                    v-if="['owner', 'manager'].includes(auth.activeCompany?.role ?? '')"
+                    prepend-icon="mdi-history"
+                    title="Movimientos y trazabilidad"
+                    to="/activity"
+                />
+                <v-list-item
                     prepend-icon="mdi-shape-outline"
                     title="Categorías"
                     to="/categories"

@@ -86,6 +86,7 @@ function movementLabel(type: InventoryMovement['type']) {
         adjustment: 'Ajuste',
         sale: 'Venta',
         sale_void: 'Anulación',
+        sale_return: 'Devolución',
     }[type];
 }
 

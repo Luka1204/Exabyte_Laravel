@@ -31,4 +31,26 @@ export const categoryService = {
 
         return response.data.data;
     },
+
+    async update(id: number, data: { name: string; description: string | null }) {
+        const auth = useAuthStore();
+        const response = await http.put<{ data: Category }>(
+            `/categories/${id}`,
+            data,
+            { headers: auth.companyHeaders() },
+        );
+
+        return response.data.data;
+    },
+
+    async setActive(id: number, isActive: boolean) {
+        const auth = useAuthStore();
+        const response = await http.patch<{ data: Category }>(
+            `/categories/${id}/status`,
+            { is_active: isActive },
+            { headers: auth.companyHeaders() },
+        );
+
+        return response.data.data;
+    },
 };

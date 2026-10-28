@@ -12,6 +12,7 @@ import RegisterView from '../modules/identity/views/RegisterView.vue';
 import LandingView from '../modules/subscriptions/views/LandingView.vue';
 import PlansView from '../modules/subscriptions/views/PlansView.vue';
 import CompanySubscriptionView from '../modules/subscriptions/views/CompanySubscriptionView.vue';
+import ActivityView from '../modules/activity/views/ActivityView.vue';
 
 export const routes: RouteRecordRaw[] = [
     {
@@ -52,6 +53,10 @@ export const routes: RouteRecordRaw[] = [
             {
                 path: 'inventory',
                 component: InventoryView,
+            },
+            {
+                path: 'activity',
+                component: ActivityView,
             },
             {
                 path: 'sales',

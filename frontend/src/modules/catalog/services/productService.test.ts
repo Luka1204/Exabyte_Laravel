@@ -8,6 +8,8 @@ vi.mock('../../../shared/api/http', () => ({
     http: {
         get: vi.fn(),
         post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
     },
     setRefreshHandlers: vi.fn(),
 }));
@@ -47,6 +49,38 @@ describe('product service tenant context', () => {
         expect(http.post).toHaveBeenCalledWith(
             '/products',
             expect.objectContaining({ sku: 'PROD-01' }),
+            expect.objectContaining({
+                headers: expect.objectContaining({ 'X-Company-ID': '11' }),
+            }),
+        );
+    });
+
+    it('updates and changes product status within the active company', async () => {
+        vi.mocked(http.put).mockResolvedValueOnce({ data: { data: {} } });
+        vi.mocked(http.patch).mockResolvedValueOnce({ data: { data: {} } });
+
+        const input = {
+            name: 'Producto',
+            sku: 'PROD-01',
+            barcode: null,
+            category_id: null,
+            price: '120.00',
+            tax_rate: '21.00',
+            is_active: true,
+        };
+        await productService.update(8, input);
+        await productService.setActive(8, false);
+
+        expect(http.put).toHaveBeenCalledWith(
+            '/products/8',
+            input,
+            expect.objectContaining({
+                headers: expect.objectContaining({ 'X-Company-ID': '11' }),
+            }),
+        );
+        expect(http.patch).toHaveBeenCalledWith(
+            '/products/8/status',
+            { is_active: false },
             expect.objectContaining({
                 headers: expect.objectContaining({ 'X-Company-ID': '11' }),
             }),

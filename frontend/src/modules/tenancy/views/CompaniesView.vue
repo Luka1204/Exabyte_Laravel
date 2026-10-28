@@ -7,7 +7,7 @@ import {
     type CompanyMember,
     type CompanyMemberRole,
 } from '../services/companyService';
-import { useAuthStore } from '../../identity/stores/authStore';
+import { useAuthStore, type AuthCompany } from '../../identity/stores/authStore';
 import { subscriptionService } from '../../subscriptions/services/subscriptionService';
 
 const auth = useAuthStore();
@@ -22,8 +22,11 @@ const members = ref<CompanyMember[]>([]);
 const selectedCompany = ref<number | null>(null);
 const memberError = ref('');
 const savingMemberId = ref<number | null>(null);
-const memberToRemove = ref<CompanyMember | null>(null);
-const removingMember = ref(false);
+const savingCompany = ref(false);
+const companyDialog = ref(false);
+const editingCompany = ref<AuthCompany | null>(null);
+const companyName = ref('');
+const companyError = ref('');
 
 async function createCompany() {
     saving.value = true;
@@ -63,8 +66,51 @@ async function createCompany() {
 }
 
 async function useCompany(companyId: number) {
+    const company = auth.companies.find((item) => item.id === companyId);
+    if (company?.is_active === false) {
+        return;
+    }
+
     auth.setActiveCompany(companyId);
     await router.push('/categories');
+}
+
+function editCompany(company: AuthCompany) {
+    editingCompany.value = company;
+    companyName.value = company.name;
+    companyError.value = '';
+    companyDialog.value = true;
+}
+
+async function saveCompany() {
+    if (!editingCompany.value) {
+        return;
+    }
+
+    savingCompany.value = true;
+    companyError.value = '';
+    try {
+        await companyService.update(editingCompany.value.id, {
+            name: companyName.value.trim(),
+        });
+        companyDialog.value = false;
+    } catch (exception: unknown) {
+        companyError.value = errorMessage(exception, 'No se pudo actualizar la empresa.');
+    } finally {
+        savingCompany.value = false;
+    }
+}
+
+async function toggleCompany(company: AuthCompany) {
+    savingCompany.value = true;
+    error.value = '';
+    try {
+        await companyService.update(company.id, { is_active: company.is_active === false });
+    } catch (exception: unknown) {
+        error.value = errorMessage(exception, 'No se pudo cambiar el estado de la empresa.');
+    } finally {
+        savingCompany.value = false;
+    }
 }
 
 async function manageMembers(companyId: number) {
@@ -97,7 +143,7 @@ async function updateMemberRole(member: CompanyMember, role: CompanyMemberRole) 
             member.id,
             role,
         );
-        member.role = updated.role;
+        Object.assign(member, updated);
     } catch (exception: unknown) {
         memberError.value = errorMessage(exception, 'No se pudo actualizar el rol.');
     } finally {
@@ -105,27 +151,24 @@ async function updateMemberRole(member: CompanyMember, role: CompanyMemberRole) 
     }
 }
 
-async function removeMember() {
-    if (selectedCompany.value === null || !memberToRemove.value) {
+async function toggleMember(member: CompanyMember) {
+    if (selectedCompany.value === null || member.role === 'owner') {
         return;
     }
 
-    removingMember.value = true;
+    savingMemberId.value = member.id;
     memberError.value = '';
-
     try {
-        await companyService.removeMember(
+        const updated = await companyService.setMemberActive(
             selectedCompany.value,
-            memberToRemove.value.id,
+            member.id,
+            !member.is_active,
         );
-        members.value = members.value.filter(
-            (member) => member.id !== memberToRemove.value?.id,
-        );
-        memberToRemove.value = null;
+        Object.assign(member, updated);
     } catch (exception: unknown) {
-        memberError.value = errorMessage(exception, 'No se pudo quitar al miembro.');
+        memberError.value = errorMessage(exception, 'No se pudo cambiar el estado del miembro.');
     } finally {
-        removingMember.value = false;
+        savingMemberId.value = null;
     }
 }
 
@@ -178,7 +221,7 @@ function errorMessage(exception: unknown, fallback: string): string {
                         {{ company.name }}
                     </v-list-item-title>
                     <v-list-item-subtitle>
-                        Rol: {{ company.role }}
+                        Rol: {{ company.role }} · {{ company.is_active === false ? 'Inactiva' : 'Activa' }}
                     </v-list-item-subtitle>
                     <template #append>
                         <v-btn
@@ -191,10 +234,32 @@ function errorMessage(exception: unknown, fallback: string): string {
                         >
                             Administrar miembros
                         </v-btn>
+                        <template v-if="company.role === 'owner'">
+                            <v-btn
+                                variant="outlined"
+                                color="secondary"
+                                rounded="lg"
+                                class="mr-3"
+                                :disabled="savingCompany"
+                                @click="editCompany(company)"
+                            >
+                                Editar
+                            </v-btn>
+                            <v-btn
+                                variant="outlined"
+                                :color="company.is_active === false ? 'success' : 'error'"
+                                rounded="lg"
+                                class="mr-3"
+                                :loading="savingCompany"
+                                @click="toggleCompany(company)"
+                            >
+                                {{ company.is_active === false ? 'Reactivar' : 'Dar de baja' }}
+                            </v-btn>
+                        </template>
                         <v-btn
                             color="primary"
                             rounded="lg"
-                            :disabled="auth.activeCompanyId === company.id"
+                            :disabled="auth.activeCompanyId === company.id || company.is_active === false"
                             @click="useCompany(company.id)"
                         >
                             {{ auth.activeCompanyId === company.id ? 'En uso' : 'Usar empresa' }}
@@ -232,18 +297,19 @@ function errorMessage(exception: unknown, fallback: string): string {
                                         density="compact"
                                         hide-details
                                         :loading="savingMemberId === member.id"
-                                        :disabled="savingMemberId !== null"
+                                        :disabled="savingMemberId !== null || !member.is_active"
                                         class="mr-3"
                                         style="max-width: 160px"
                                         @update:model-value="updateMemberRole(member, $event)"
                                     />
                                     <v-btn
-                                        color="error"
+                                        :color="member.is_active ? 'error' : 'success'"
                                         variant="text"
+                                        :loading="savingMemberId === member.id"
                                         :disabled="savingMemberId !== null"
-                                        @click="memberToRemove = member"
+                                        @click="toggleMember(member)"
                                     >
-                                        Quitar
+                                        {{ member.is_active ? 'Dar de baja' : 'Reactivar' }}
                                     </v-btn>
                                 </template>
                             </template>
@@ -260,27 +326,31 @@ function errorMessage(exception: unknown, fallback: string): string {
             </v-card>
         </v-dialog>
 
-        <v-dialog
-            :model-value="memberToRemove !== null"
-            max-width="440"
-            @update:model-value="!$event && (memberToRemove = null)"
-        >
+        <v-dialog v-model="companyDialog" max-width="520">
             <v-card class="surface-card">
-                <v-card-title class="pa-5 text-secondary">Quitar miembro</v-card-title>
+                <v-card-title class="pa-5 text-secondary">Editar empresa</v-card-title>
                 <v-card-text>
-                    ¿Querés quitar a {{ memberToRemove?.name }} de esta empresa?
+                    <v-alert v-if="companyError" type="error" class="mb-4">
+                        {{ companyError }}
+                    </v-alert>
+                    <v-text-field
+                        v-model="companyName"
+                        label="Nombre comercial"
+                        maxlength="160"
+                        variant="outlined"
+                        rounded="lg"
+                    />
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer />
-                    <v-btn :disabled="removingMember" @click="memberToRemove = null">
-                        Cancelar
-                    </v-btn>
+                    <v-btn @click="companyDialog = false">Cancelar</v-btn>
                     <v-btn
-                        color="error"
-                        :loading="removingMember"
-                        @click="removeMember"
+                        color="primary"
+                        :loading="savingCompany"
+                        :disabled="!companyName.trim()"
+                        @click="saveCompany"
                     >
-                        Quitar
+                        Guardar
                     </v-btn>
                 </v-card-actions>
             </v-card>

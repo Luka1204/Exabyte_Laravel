@@ -8,6 +8,8 @@ vi.mock('../../../shared/api/http', () => ({
     http: {
         get: vi.fn(),
         post: vi.fn(),
+        put: vi.fn(),
+        patch: vi.fn(),
     },
     setRefreshHandlers: vi.fn(),
 }));
@@ -68,6 +70,25 @@ describe('category service tenant context', () => {
                     'X-Company-ID': '11',
                 },
             },
+        );
+    });
+
+    it('updates and changes category status using the active company', async () => {
+        vi.mocked(http.put).mockResolvedValueOnce({ data: { data: {} } });
+        vi.mocked(http.patch).mockResolvedValueOnce({ data: { data: {} } });
+
+        await categoryService.update(5, { name: 'Alimentos', description: null });
+        await categoryService.setActive(5, false);
+
+        expect(http.put).toHaveBeenCalledWith(
+            '/categories/5',
+            { name: 'Alimentos', description: null },
+            { headers: expect.objectContaining({ 'X-Company-ID': '11' }) },
+        );
+        expect(http.patch).toHaveBeenCalledWith(
+            '/categories/5/status',
+            { is_active: false },
+            { headers: expect.objectContaining({ 'X-Company-ID': '11' }) },
         );
     });
 });

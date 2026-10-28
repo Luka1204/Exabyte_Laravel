@@ -20,4 +20,9 @@ class CategoryPolicy
             ->wherePivotIn('role', ['owner', 'manager'])
             ->exists();
     }
+
+    public function update(User $user, int $companyId): bool
+    {
+        return $this->create($user, $companyId);
+    }
 }

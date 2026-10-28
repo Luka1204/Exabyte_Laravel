@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
                 changeOrigin: true,
             },
         },
+        allowedHosts: [
+            'move-bags-safely-syndrome.trycloudflare.com'
+        ]
     },
     test: {
         environment: 'jsdom',

@@ -172,6 +172,40 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /companies/{company}:
+    parameters:
+      - name: company
+        in: path
+        required: true
+        schema:
+          type: integer
+    patch:
+      summary: Editar o activar/desactivar una empresa
+      description: Solo el owner puede cambiar el nombre o el estado. La baja conserva sus datos e historial.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  maxLength: 160
+                is_active:
+                  type: boolean
+      responses:
+        "200":
+          description: Empresa actualizada.
+        "403":
+          description: Se requiere el rol owner.
+        "404":
+          description: Empresa no disponible.
+        "422":
+          $ref: "#/components/responses/ValidationError"
   /companies/{company}/members:
     parameters:
       - name: company
@@ -215,8 +249,8 @@ paths:
         schema:
           type: integer
     patch:
-      summary: Cambiar rol de un miembro existente
-      description: Solo owner puede ejecutar. No permite asignar owner ni modificar la membresía owner.
+      summary: Editar o activar/desactivar una membresía
+      description: Solo owner puede ejecutar. No permite cambiar ni desactivar la membresía owner.
       security:
         - bearerAuth: []
       requestBody:
@@ -225,14 +259,16 @@ paths:
           application/json:
             schema:
               type: object
-              required: [role]
+              minProperties: 1
               properties:
                 role:
                   type: string
                   enum: [manager, member]
+                is_active:
+                  type: boolean
       responses:
         "200":
-          description: Rol actualizado.
+          description: Membresía actualizada.
           content:
             application/json:
               schema:
@@ -249,13 +285,13 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
     delete:
-      summary: Quitar un miembro existente
-      description: Solo owner puede ejecutar. La membresía owner no puede eliminarse con este endpoint.
+      summary: Dar de baja una membresía
+      description: Solo owner puede ejecutar. La membresía queda inactiva para conservar trazabilidad; owner no puede darse de baja.
       security:
         - bearerAuth: []
       responses:
         "204":
-          description: Membresía eliminada.
+          description: Membresía desactivada.
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -359,6 +395,200 @@ paths:
           description: No existe una suscripción vigente ni una excepción legacy aplicable.
         "422":
           $ref: "#/components/responses/ValidationError"
+  /categories/{category}:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: X-Company-ID
+        in: header
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Editar una categoría
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 120 }
+                description: { type: [string, "null"], maxLength: 2000 }
+      responses:
+        "200":
+          description: Categoría actualizada.
+        "404":
+          description: Categoría no disponible en la empresa activa.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /categories/{category}/status:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: X-Company-ID
+        in: header
+        required: true
+        schema:
+          type: integer
+    patch:
+      summary: Activar o dar de baja una categoría
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active: { type: boolean }
+      responses:
+        "200":
+          description: Estado de la categoría actualizado.
+        "404":
+          description: Categoría no disponible en la empresa activa.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /products:
+    get:
+      summary: Listar productos
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Company-ID
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+      responses:
+        "200":
+          description: Productos paginados para la empresa activa.
+    post:
+      summary: Crear producto
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Company-ID
+          in: header
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Producto creado.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /products/{product}:
+    parameters:
+      - name: product
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: X-Company-ID
+        in: header
+        required: true
+        schema:
+          type: integer
+    put:
+      summary: Editar un producto
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "200":
+          description: Producto actualizado.
+        "404":
+          description: Producto no disponible en la empresa activa.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /products/{product}/status:
+    parameters:
+      - name: product
+        in: path
+        required: true
+        schema:
+          type: integer
+      - name: X-Company-ID
+        in: header
+        required: true
+        schema:
+          type: integer
+    patch:
+      summary: Activar o dar de baja un producto
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_active]
+              properties:
+                is_active: { type: boolean }
+      responses:
+        "200":
+          description: Estado del producto actualizado.
+        "404":
+          description: Producto no disponible en la empresa activa.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /activity:
+    get:
+      summary: Consultar movimientos y trazabilidad de la empresa
+      description: Requiere membresía owner o manager. Registra actor, acción, recurso, referencia y campos enviados; nunca guarda los valores de la solicitud.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Company-ID
+          in: header
+          required: true
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        "200":
+          description: Actividad paginada en orden cronológico inverso.
+        "403":
+          description: Se requiere owner o manager.
+        "404":
+          description: Empresa no disponible.
   /reports/sales:
     get:
       summary: Resumen de ventas para el período
@@ -957,6 +1187,7 @@ components:
           format: email
     Category:
       type: object
+      required: [id, name, is_active]
       properties:
         id:
           type: integer
@@ -967,17 +1198,43 @@ components:
           type: string
         description:
           type: [string, "null"]
+        is_active:
+          type: boolean
         created_at:
           type: string
           format: date-time
           nullable: true
+    ProductInput:
+      type: object
+      required: [name, sku, price]
+      properties:
+        name: { type: string, maxLength: 160 }
+        sku: { type: string, maxLength: 64 }
+        barcode: { type: [string, "null"], maxLength: 64 }
+        category_id: { type: [integer, "null"] }
+        price: { type: string, pattern: "^[0-9]+(\\.[0-9]{1,2})?$" }
+        tax_rate: { type: string, pattern: "^[0-9]+(\\.[0-9]{1,2})?$" }
+        is_active: { type: boolean }
+    Product:
+      type: object
+      required: [id, company_id, name, sku, price, tax_rate, is_active]
+      properties:
+        id: { type: integer }
+        company_id: { type: integer }
+        category_id: { type: [integer, "null"] }
+        name: { type: string }
+        sku: { type: string }
+        barcode: { type: [string, "null"] }
+        price: { type: string }
+        tax_rate: { type: string }
+        is_active: { type: boolean }
         updated_at:
           type: string
           format: date-time
           nullable: true
     CompanyMembership:
       type: object
-      required: [id, name, role]
+      required: [id, name, role, is_active]
       properties:
         id:
           type: integer
@@ -987,9 +1244,11 @@ components:
           type: string
           description: owner administra la empresa; manager y owner pueden crear categorías; member solo puede consultarlas.
           enum: [owner, manager, member]
+        is_active:
+          type: boolean
     CompanyMember:
       type: object
-      required: [id, name, email, role]
+      required: [id, name, email, role, is_active]
       properties:
         id:
           type: integer
@@ -1001,6 +1260,25 @@ components:
         role:
           type: string
           enum: [owner, manager, member]
+        is_active:
+          type: boolean
+    CompanyActivityEvent:
+      type: object
+      required: [id, action, subject_type, created_at]
+      properties:
+        id: { type: integer }
+        action: { type: string }
+        subject_type: { type: string }
+        subject_id: { type: [string, "null"] }
+        details:
+          type: [object, "null"]
+          description: Incluye método HTTP, estado, nombres de campos y solo el estado activo; nunca valores de campos sensibles.
+        actor:
+          type: [object, "null"]
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        created_at: { type: string, format: date-time }
     SaleReturn:
       type: object
       required: [id, sale_id, cash_session_id, reason, total, items]

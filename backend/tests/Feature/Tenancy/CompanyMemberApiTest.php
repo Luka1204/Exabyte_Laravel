@@ -82,9 +82,10 @@ class CompanyMemberApiTest extends TestCase
             )
             ->assertNoContent();
 
-        $this->assertDatabaseMissing('company_memberships', [
+        $this->assertDatabaseHas('company_memberships', [
             'company_id' => $company->id,
             'user_id' => $member->id,
+            'is_active' => false,
         ]);
     }
 

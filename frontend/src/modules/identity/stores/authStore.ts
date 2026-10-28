@@ -15,6 +15,7 @@ export interface AuthCompany
     id:number;
     name:string;
     role:string;
+    is_active?: boolean;
 }
 
 export const useAuthStore = defineStore('auth', ()=>{

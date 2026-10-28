@@ -15,6 +15,7 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('active_company_id');
+        $productId = $this->route('product');
 
         return [
             'name' => ['required', 'string', 'max:160'],
@@ -24,7 +25,7 @@ class StoreProductRequest extends FormRequest
                 'max:64',
                 Rule::unique('products', 'sku')->where(
                     fn ($query) => $query->where('company_id', $companyId)
-                ),
+                )->ignore($productId),
             ],
             'barcode' => [
                 'nullable',
@@ -32,13 +33,15 @@ class StoreProductRequest extends FormRequest
                 'max:64',
                 Rule::unique('products', 'barcode')->where(
                     fn ($query) => $query->where('company_id', $companyId)
-                ),
+                )->ignore($productId),
             ],
             'category_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('categories', 'id')->where(
-                    fn ($query) => $query->where('company_id', $companyId)
+                    fn ($query) => $query
+                        ->where('company_id', $companyId)
+                        ->where('is_active', true)
                 ),
             ],
             'price' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],

@@ -3,14 +3,14 @@
 namespace App\Modules\Subscriptions\Presentation\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Subscriptions\Application\UseCases\CancelSubscription;
+use App\Modules\Subscriptions\Application\UseCases\ChangeSubscription;
+use App\Modules\Subscriptions\Application\UseCases\StartSubscription;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoNotConfigured;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoRequestFailed;
-use App\Modules\Subscriptions\Application\UseCases\ChangeSubscription;
-use App\Modules\Subscriptions\Application\UseCases\CancelSubscription;
-use App\Modules\Subscriptions\Application\UseCases\StartSubscription;
 use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\Subscription;
-use App\Modules\Subscriptions\Presentation\Requests\StartSubscriptionRequest;
 use App\Modules\Subscriptions\Presentation\Requests\ChangeSubscriptionRequest;
+use App\Modules\Subscriptions\Presentation\Requests\StartSubscriptionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,9 +41,9 @@ class CompanySubscriptionController extends Controller
                 (int) $data['plan_id'],
                 $data['billing_period']
             );
-        } catch (MercadoPagoNotConfigured) {
+        } catch (MercadoPagoNotConfigured $exception) {
             return response()->json([
-                'message' => 'La contratación online no está configurada todavía.',
+                'message' => $exception->getMessage(),
             ], Response::HTTP_SERVICE_UNAVAILABLE);
         } catch (MercadoPagoRequestFailed) {
             return response()->json([
@@ -83,9 +83,9 @@ class CompanySubscriptionController extends Controller
                 (int) $data['plan_id'],
                 $data['billing_period']
             );
-        } catch (MercadoPagoNotConfigured) {
+        } catch (MercadoPagoNotConfigured $exception) {
             return response()->json([
-                'message' => 'La actualización online no está configurada todavía.',
+                'message' => $exception->getMessage(),
             ], Response::HTTP_SERVICE_UNAVAILABLE);
         } catch (MercadoPagoRequestFailed) {
             return response()->json([

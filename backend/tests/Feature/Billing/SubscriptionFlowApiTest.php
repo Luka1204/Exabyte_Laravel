@@ -4,7 +4,6 @@ namespace Tests\Feature\Billing;
 
 use App\Models\User;
 use App\Modules\Subscriptions\Application\Jobs\ProcessMercadoPagoEvent;
-use App\Modules\Subscriptions\Application\UseCases\StartSubscription;
 use App\Modules\Subscriptions\Domain\Contracts\MercadoPagoGateway;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoRequestFailed;
 use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\Plan;
@@ -35,6 +34,8 @@ class SubscriptionFlowApiTest extends TestCase
             'jwt.ttl' => 900,
             'app.url' => 'http://localhost',
             'services.mercadopago.return_url' => 'https://app.example.test/billing/return',
+            'services.mercadopago.environment' => 'sandbox',
+            'services.mercadopago.sandbox_payer_email' => null,
             'services.mercadopago.webhook_secret' => self::WEBHOOK_SECRET,
         ]);
     }
@@ -44,6 +45,10 @@ class SubscriptionFlowApiTest extends TestCase
         $owner = $this->createUser();
         $company = $this->createCompany($owner);
         $plan = $this->createPlan();
+        config([
+            'services.mercadopago.environment' => 'sandbox',
+            'services.mercadopago.sandbox_payer_email' => 'buyer.test@example.test',
+        ]);
         $gateway = Mockery::mock(MercadoPagoGateway::class);
         $gateway->shouldReceive('findPreapprovalByReference')
             ->once()
@@ -55,6 +60,7 @@ class SubscriptionFlowApiTest extends TestCase
                 $payload['auto_recurring']['transaction_amount'] === '9900.00'
                 && $payload['auto_recurring']['currency_id'] === 'ARS'
                 && $payload['auto_recurring']['frequency'] === 1
+                && $payload['payer_email'] === 'buyer.test@example.test'
                 && $payload['status'] === 'pending'
             )))
             ->andReturn([
@@ -104,6 +110,35 @@ class SubscriptionFlowApiTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseCount('subscriptions', 0);
+    }
+
+    public function test_sandbox_payer_email_override_is_ignored_in_production(): void
+    {
+        $owner = $this->createUser();
+        $company = $this->createCompany($owner);
+        $plan = $this->createPlan();
+        config([
+            'services.mercadopago.environment' => 'production',
+            'services.mercadopago.sandbox_payer_email' => 'buyer.test@example.test',
+        ]);
+        $gateway = Mockery::mock(MercadoPagoGateway::class);
+        $gateway->shouldReceive('findPreapprovalByReference')->once()->andReturn(null);
+        $gateway->shouldReceive('createPendingPreapproval')
+            ->once()
+            ->with(Mockery::on(fn (array $payload): bool => $payload['payer_email'] === $owner->email))
+            ->andReturn([
+                'id' => 'mp-subscription-production',
+                'init_point' => 'https://www.mercadopago.com.ar/subscriptions/checkout/test',
+                'status' => 'pending',
+            ]);
+        $this->app->instance(MercadoPagoGateway::class, $gateway);
+
+        $this->withToken($this->tokenFor($owner))
+            ->postJson("/api/v1/companies/{$company->id}/subscription", [
+                'plan_id' => $plan->id,
+                'billing_period' => 'monthly',
+            ])
+            ->assertCreated();
     }
 
     public function test_company_owner_can_change_the_existing_provider_subscription_with_server_priced_terms(): void
@@ -435,7 +470,7 @@ class SubscriptionFlowApiTest extends TestCase
     private function signedHeaders(string $dataId, string $requestId): array
     {
         $timestamp = (string) time();
-        $manifest = "id:".strtolower($dataId).";request-id:{$requestId};ts:{$timestamp};";
+        $manifest = 'id:'.strtolower($dataId).";request-id:{$requestId};ts:{$timestamp};";
         $signature = hash_hmac('sha256', $manifest, self::WEBHOOK_SECRET);
 
         return [

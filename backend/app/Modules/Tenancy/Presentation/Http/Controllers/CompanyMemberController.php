@@ -25,6 +25,7 @@ class CompanyMemberController extends Controller
                 'name' => $member->name,
                 'email' => $member->email,
                 'role' => $member->pivot->role,
+                'is_active' => (bool) $member->pivot->is_active,
             ]),
         ]);
     }
@@ -39,15 +40,22 @@ class CompanyMemberController extends Controller
         $updateRole->execute(
             $companyModel,
             $member,
-            $request->validated()['role']
+            $request->validated('role'),
+            $request->has('is_active')
+                ? (bool) $request->validated('is_active')
+                : null
         );
 
+        $updated = $companyModel->memberships()
+            ->whereKey($member)
+            ->firstOrFail();
+
         return response()->json([
-            'data' => $companyModel->memberships()
-                ->whereKey($member)
-                ->firstOrFail()
-                ->only(['id', 'name', 'email'])
-                + ['role' => $request->validated()['role']],
+            'data' => $updated->only(['id', 'name', 'email'])
+                + [
+                    'role' => $updated->pivot->role,
+                    'is_active' => (bool) $updated->pivot->is_active,
+                ],
         ]);
     }
 

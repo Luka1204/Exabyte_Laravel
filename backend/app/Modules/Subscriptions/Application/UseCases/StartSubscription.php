@@ -5,7 +5,6 @@ namespace App\Modules\Subscriptions\Application\UseCases;
 use App\Models\User;
 use App\Modules\Subscriptions\Domain\Contracts\MercadoPagoGateway;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoNotConfigured;
-use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\PaymentAttempt;
 use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\Plan;
 use App\Modules\Subscriptions\Infrastructure\Persistence\Eloquent\Subscription;
 use App\Modules\Tenancy\Infrastructure\Persistence\Eloquent\Company;
@@ -130,7 +129,7 @@ class StartSubscription
                 [
                     'reason' => $plan->name,
                     'external_reference' => $externalReference,
-                    'payer_email' => $billingUser->email,
+                    'payer_email' => $this->payerEmail($billingUser->email),
                     'auto_recurring' => [
                         'frequency' => $frequency,
                         'frequency_type' => 'months',
@@ -150,7 +149,7 @@ class StartSubscription
         try {
             $returnUrl = config('services.mercadopago.return_url');
             if (! is_string($returnUrl) || filter_var($returnUrl, FILTER_VALIDATE_URL) === false) {
-                throw new MercadoPagoNotConfigured();
+                throw new MercadoPagoNotConfigured;
             }
 
             $existingProviderSubscription = $this->mercadoPago->findPreapprovalByReference(
@@ -197,7 +196,9 @@ class StartSubscription
         return [
             'reason' => $terms['name'],
             'external_reference' => $subscription->external_reference,
-            'payer_email' => $subscription->billingUser()->value('email'),
+            'payer_email' => $this->payerEmail(
+                (string) $subscription->billingUser()->value('email')
+            ),
             'auto_recurring' => [
                 'frequency' => $subscription->billing_period === 'annual' ? 12 : 1,
                 'frequency_type' => 'months',
@@ -207,5 +208,26 @@ class StartSubscription
             'back_url' => (string) config('services.mercadopago.return_url'),
             'status' => 'pending',
         ];
+    }
+
+    private function payerEmail(string $accountEmail): string
+    {
+        if (config('services.mercadopago.environment') !== 'sandbox') {
+            return $accountEmail;
+        }
+
+        $sandboxPayerEmail = config('services.mercadopago.sandbox_payer_email');
+        if (! is_string($sandboxPayerEmail) || trim($sandboxPayerEmail) === '') {
+            return $accountEmail;
+        }
+
+        $sandboxPayerEmail = trim($sandboxPayerEmail);
+        if (filter_var($sandboxPayerEmail, FILTER_VALIDATE_EMAIL) === false) {
+            throw new MercadoPagoNotConfigured(
+                'MERCADOPAGO_SANDBOX_PAYER_EMAIL debe ser un correo válido de un usuario comprador de prueba.'
+            );
+        }
+
+        return $sandboxPayerEmail;
     }
 }

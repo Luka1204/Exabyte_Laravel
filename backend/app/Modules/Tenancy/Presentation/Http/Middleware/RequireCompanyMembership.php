@@ -12,7 +12,7 @@ class RequireCompanyMembership
     {
         $companyId = $request->header('X-Company-ID');
 
-        if (!is_string($companyId) || !ctype_digit($companyId)) {
+        if (! is_string($companyId) || ! ctype_digit($companyId)) {
             return response()->json([
                 'message' => 'Seleccioná una empresa para continuar.',
             ], 400);
@@ -21,9 +21,11 @@ class RequireCompanyMembership
         $isMember = $request->user()
             ->companies()
             ->whereKey((int) $companyId)
+            ->where('companies.is_active', true)
+            ->wherePivot('is_active', true)
             ->exists();
 
-        if (!$isMember) {
+        if (! $isMember) {
             return response()->json([
                 'message' => 'Empresa no disponible.',
             ], 404);

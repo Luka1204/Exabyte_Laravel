@@ -40,6 +40,7 @@ return [
         'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
         'webhook_secret' => env('MERCADOPAGO_WEBHOOK_SECRET'),
         'environment' => env('MERCADOPAGO_ENVIRONMENT', 'sandbox'),
+        'sandbox_payer_email' => env('MERCADOPAGO_SANDBOX_PAYER_EMAIL'),
         'webhook_url' => env('MERCADOPAGO_WEBHOOK_URL'),
         'return_url' => env('MERCADOPAGO_RETURN_URL'),
     ],

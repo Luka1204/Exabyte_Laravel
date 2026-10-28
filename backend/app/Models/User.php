@@ -3,8 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
 use App\Modules\Tenancy\Infrastructure\Persistence\Eloquent\Company;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -55,6 +55,6 @@ class User extends Authenticatable
         return $this->belongsToMany(
             Company::class,
             'company_memberships'
-        )->withPivot('role')->withTimestamps();
+        )->withPivot('role', 'is_active')->withTimestamps();
     }
 }

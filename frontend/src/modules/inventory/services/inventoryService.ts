@@ -15,7 +15,7 @@ export interface InventoryStock {
 
 export interface InventoryMovement {
     id: number;
-    type: 'adjustment' | 'sale' | 'sale_void';
+    type: 'adjustment' | 'sale' | 'sale_void' | 'sale_return';
     quantity_delta: string;
     balance_after: string;
     reason: string;

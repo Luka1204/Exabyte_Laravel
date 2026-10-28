@@ -12,6 +12,7 @@ const auth = useAuthStore();
 const loading = ref(false);
 const saving = ref(false);
 const dialog = ref(false);
+const editingId = ref<number | null>(null);
 const error = ref('');
 const success = ref('');
 const form = ref({
@@ -21,7 +22,9 @@ const form = ref({
     category_id: null as number | null,
     price: '',
     tax_rate: '0',
+    is_active: true,
 });
+const activeCategories = computed(() => categories.value.filter((category) => category.is_active));
 
 const categoryNames = computed(
     () => new Map(categories.value.map((category) => [category.id, category.name])),
@@ -45,15 +48,17 @@ async function loadData() {
     }
 }
 
-function openCreateDialog() {
+function openCreateDialog(product?: Product) {
     error.value = '';
+    editingId.value = product?.id ?? null;
     form.value = {
-        name: '',
-        sku: '',
-        barcode: '',
-        category_id: null,
-        price: '',
-        tax_rate: '0',
+        name: product?.name ?? '',
+        sku: product?.sku ?? '',
+        barcode: product?.barcode ?? '',
+        category_id: product?.category_id ?? null,
+        price: product?.price ?? '',
+        tax_rate: product?.tax_rate ?? '0',
+        is_active: product?.is_active ?? true,
     };
     dialog.value = true;
 }
@@ -68,19 +73,44 @@ async function createProduct() {
     success.value = '';
 
     try {
-        await productService.create({
+        const data = {
             name: form.value.name.trim(),
             sku: form.value.sku.trim(),
             barcode: form.value.barcode.trim() || null,
             category_id: form.value.category_id,
             price: Number(form.value.price).toFixed(2),
             tax_rate: Number(form.value.tax_rate || 0).toFixed(2),
-        });
+            is_active: form.value.is_active,
+        };
+        if (editingId.value === null) {
+            await productService.create(data);
+        } else {
+            await productService.update(editingId.value, data);
+        }
         dialog.value = false;
-        success.value = 'Producto creado. Ahora podés ingresar su stock desde Inventario.';
+        success.value = editingId.value === null
+            ? 'Producto creado. Ahora podés ingresar su stock desde Inventario.'
+            : 'Producto actualizado correctamente.';
+        editingId.value = null;
         await loadData();
     } catch (exception: unknown) {
         error.value = apiErrorMessage(exception, 'No se pudo crear el producto.');
+    } finally {
+        saving.value = false;
+    }
+}
+
+async function setProductActive(product: Product) {
+    saving.value = true;
+    error.value = '';
+    success.value = '';
+
+    try {
+        await productService.setActive(product.id, !product.is_active);
+        success.value = `Producto ${product.is_active ? 'dado de baja' : 'reactivado'} correctamente.`;
+        await loadData();
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(exception, 'No se pudo cambiar el estado del producto.');
     } finally {
         saving.value = false;
     }
@@ -143,11 +173,12 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
                         <th>Precio</th>
                         <th>Impuesto</th>
                         <th>Estado</th>
+                        <th class="text-right">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="!loading && products.length === 0">
-                        <td colspan="6" class="py-12 text-center text-medium-emphasis">
+                        <td colspan="7" class="py-12 text-center text-medium-emphasis">
                             <v-icon icon="mdi-package-variant" size="34" class="mb-2" />
                             <div>Tu catálogo está vacío. Creá el primer producto para empezar.</div>
                         </td>
@@ -167,6 +198,23 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
                                 {{ product.is_active ? 'Activo' : 'Inactivo' }}
                             </v-chip>
                         </td>
+                        <td class="text-right">
+                            <v-btn
+                                icon="mdi-pencil"
+                                variant="text"
+                                aria-label="Editar producto"
+                                :disabled="saving"
+                                @click="openCreateDialog(product)"
+                            />
+                            <v-btn
+                                :icon="product.is_active ? 'mdi-toggle-switch' : 'mdi-toggle-switch-off-outline'"
+                                :color="product.is_active ? 'success' : 'secondary'"
+                                variant="text"
+                                :aria-label="product.is_active ? 'Dar de baja producto' : 'Reactivar producto'"
+                                :loading="saving"
+                                @click="setProductActive(product)"
+                            />
+                        </td>
                     </tr>
                 </tbody>
             </v-table>
@@ -176,7 +224,7 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
         <v-dialog v-model="dialog" max-width="640">
             <v-card class="surface-card pa-2">
                 <v-card-title class="text-h6 font-weight-bold text-secondary pa-5">
-                    Crear producto
+                    {{ editingId ? 'Editar producto' : 'Crear producto' }}
                 </v-card-title>
                 <v-card-text>
                     <v-alert v-if="error" type="error" class="mb-4" rounded="lg">
@@ -214,7 +262,7 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
                             <v-col cols="12" sm="6">
                                 <v-select
                                     v-model="form.category_id"
-                                    :items="categories"
+                                    :items="activeCategories"
                                     item-title="name"
                                     item-value="id"
                                     label="Categoría"
@@ -250,6 +298,13 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
                                 />
                             </v-col>
                         </v-row>
+                        <v-switch
+                            v-if="editingId"
+                            v-model="form.is_active"
+                            label="Producto activo"
+                            color="success"
+                            inset
+                        />
                         <div class="d-flex justify-end ga-3">
                             <v-btn variant="text" rounded="lg" @click="dialog = false">
                                 Cancelar
@@ -261,7 +316,7 @@ watch(() => auth.activeCompanyId, loadData, { immediate: true });
                                 :loading="saving"
                                 :disabled="!form.name.trim() || !form.sku.trim() || form.price === ''"
                             >
-                                Guardar producto
+                                {{ editingId ? 'Actualizar producto' : 'Guardar producto' }}
                             </v-btn>
                         </div>
                     </v-form>

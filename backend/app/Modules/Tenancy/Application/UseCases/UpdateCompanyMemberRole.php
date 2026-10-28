@@ -9,9 +9,13 @@ use Illuminate\Validation\ValidationException;
 
 class UpdateCompanyMemberRole
 {
-    public function execute(Company $company, int $userId, string $role): void
-    {
-        DB::transaction(function () use ($company, $userId, $role): void {
+    public function execute(
+        Company $company,
+        int $userId,
+        ?string $role,
+        ?bool $isActive = null
+    ): void {
+        DB::transaction(function () use ($company, $userId, $role, $isActive): void {
             $membership = DB::table('company_memberships')
                 ->where('company_id', $company->getKey())
                 ->where('user_id', $userId)
@@ -25,19 +29,27 @@ class UpdateCompanyMemberRole
                 );
             }
 
-            if ($membership->role === 'owner') {
+            if (
+                $membership->role === 'owner'
+                && ($role !== null || $isActive === false)
+            ) {
                 throw ValidationException::withMessages([
-                    'role' => ['La membresía owner no se puede cambiar desde esta operación.'],
+                    'member' => ['La membresía owner no se puede cambiar ni desactivar desde esta operación.'],
                 ]);
+            }
+
+            $changes = ['updated_at' => now()];
+            if ($role !== null) {
+                $changes['role'] = $role;
+            }
+            if ($isActive !== null) {
+                $changes['is_active'] = $isActive;
             }
 
             DB::table('company_memberships')
                 ->where('company_id', $company->getKey())
                 ->where('user_id', $userId)
-                ->update([
-                    'role' => $role,
-                    'updated_at' => now(),
-                ]);
+                ->update($changes);
         }, attempts: 3);
     }
 }

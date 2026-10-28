@@ -1,19 +1,22 @@
 <?php
 
+use App\Modules\Activity\Presentation\Http\Controllers\CompanyActivityController;
+use App\Modules\Activity\Presentation\Http\Middleware\RecordCompanyActivity;
+use App\Modules\Activity\Presentation\Http\Middleware\RequireCompanyAdmin;
 use App\Modules\CashManagement\Presentation\Http\Controllers\CashSessionController;
 use App\Modules\Catalog\Presentation\Http\Controllers\CategoryController;
 use App\Modules\Catalog\Presentation\Http\Controllers\ProductController;
 use App\Modules\Identity\Presentation\Http\Controllers\AuthController;
 use App\Modules\Identity\Presentation\Http\Middleware\AuthenticateJwt;
 use App\Modules\Inventory\Presentation\Http\Controllers\InventoryController;
-use App\Modules\Sales\Presentation\Http\Controllers\SaleController;
 use App\Modules\Reporting\Presentation\Http\Controllers\SalesReportController;
-use App\Modules\Subscriptions\Presentation\Http\Controllers\PlanController;
-use App\Modules\Subscriptions\Presentation\Http\Controllers\PlatformBillingController;
+use App\Modules\Sales\Presentation\Http\Controllers\SaleController;
 use App\Modules\Subscriptions\Presentation\Http\Controllers\CompanySubscriptionController;
 use App\Modules\Subscriptions\Presentation\Http\Controllers\MercadoPagoWebhookController;
-use App\Modules\Subscriptions\Presentation\Http\Middleware\RequireSubscriptionEntitlement;
+use App\Modules\Subscriptions\Presentation\Http\Controllers\PlanController;
+use App\Modules\Subscriptions\Presentation\Http\Controllers\PlatformBillingController;
 use App\Modules\Subscriptions\Presentation\Http\Middleware\RequirePlatformAdmin;
+use App\Modules\Subscriptions\Presentation\Http\Middleware\RequireSubscriptionEntitlement;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyMemberController;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyMembership;
@@ -31,7 +34,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/payments/mercadopago/webhook', MercadoPagoWebhookController::class)
         ->middleware('throttle:120,1');
 
-    Route::middleware(AuthenticateJwt::class)->group(function () {
+    Route::middleware([AuthenticateJwt::class, RecordCompanyActivity::class])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::prefix('/platform')
@@ -56,6 +59,8 @@ Route::prefix('v1')->group(function () {
             });
         Route::get('/companies', [CompanyController::class, 'index']);
         Route::post('/companies', [CompanyController::class, 'store']);
+        Route::patch('/companies/{company}', [CompanyController::class, 'update'])
+            ->middleware(RequireCompanyOwner::class);
         Route::prefix('/companies/{company}/members')
             ->middleware(RequireCompanyOwner::class)
             ->group(function () {
@@ -65,11 +70,17 @@ Route::prefix('v1')->group(function () {
             });
 
         Route::middleware(RequireCompanyMembership::class)->group(function () {
+            Route::get('/activity', [CompanyActivityController::class, 'index'])
+                ->middleware(RequireCompanyAdmin::class);
             Route::middleware(RequireSubscriptionEntitlement::class.':catalog')->group(function () {
                 Route::get('/categories', [CategoryController::class, 'index']);
                 Route::post('/categories', [CategoryController::class, 'store']);
+                Route::put('/categories/{category}', [CategoryController::class, 'update']);
+                Route::patch('/categories/{category}/status', [CategoryController::class, 'setStatus']);
                 Route::get('/products', [ProductController::class, 'index']);
                 Route::post('/products', [ProductController::class, 'store']);
+                Route::put('/products/{product}', [ProductController::class, 'update']);
+                Route::patch('/products/{product}/status', [ProductController::class, 'setStatus']);
             });
             Route::middleware(RequireSubscriptionEntitlement::class.':inventory')->group(function () {
                 Route::get('/inventory/stocks', [InventoryController::class, 'stocks']);

@@ -11,6 +11,7 @@ const name = ref('');
 const description = ref('');
 const loading = ref(false);
 const saving = ref(false);
+const editingId = ref<number | null>(null);
 const error = ref('');
 const success = ref('');
 
@@ -34,18 +35,48 @@ async function createCategory() {
     success.value = '';
 
     try {
-        await categoryService.create({
+        const data = {
             name: name.value.trim(),
             description: description.value.trim() || null,
-        });
+        };
+        if (editingId.value === null) {
+            await categoryService.create(data);
+        } else {
+            await categoryService.update(editingId.value, data);
+        }
 
         name.value = '';
         description.value = '';
-        success.value = 'Categoría creada correctamente.';
+        editingId.value = null;
+        success.value = 'Categoría guardada correctamente.';
 
         await loadCategories();
     } catch (exception: unknown) {
-        error.value = apiErrorMessage(exception, 'No se pudo crear la categoría.');
+        error.value = apiErrorMessage(exception, 'No se pudo guardar la categoría.');
+    } finally {
+        saving.value = false;
+    }
+}
+
+function editCategory(category: Category) {
+    editingId.value = category.id;
+    name.value = category.name;
+    description.value = category.description ?? '';
+    error.value = '';
+    success.value = '';
+}
+
+async function setCategoryActive(category: Category) {
+    saving.value = true;
+    error.value = '';
+    success.value = '';
+
+    try {
+        await categoryService.setActive(category.id, !category.is_active);
+        success.value = `Categoría ${category.is_active ? 'dada de baja' : 'reactivada'} correctamente.`;
+        await loadCategories();
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(exception, 'No se pudo cambiar el estado de la categoría.');
     } finally {
         saving.value = false;
     }
@@ -100,7 +131,9 @@ watch(() => auth.activeCompanyId, loadCategories, { immediate: true });
                     <v-icon color="primary" icon="mdi-shape-plus-outline" />
                 </v-avatar>
                 <div>
-                    <div class="text-h6 font-weight-bold text-secondary">Nueva categoría</div>
+                    <div class="text-h6 font-weight-bold text-secondary">
+                        {{ editingId ? 'Editar categoría' : 'Nueva categoría' }}
+                    </div>
                     <div class="text-body-2 text-medium-emphasis">
                         Creá una categoría para clasificar tus productos.
                     </div>
@@ -138,7 +171,16 @@ watch(() => auth.activeCompanyId, loadCategories, { immediate: true });
                             :loading="saving"
                             :disabled="!name.trim()"
                         >
-                            Guardar
+                            {{ editingId ? 'Actualizar' : 'Guardar' }}
+                        </v-btn>
+                        <v-btn
+                            v-if="editingId"
+                            variant="text"
+                            block
+                            class="mt-2"
+                            @click="editingId = null; name = ''; description = ''"
+                        >
+                            Cancelar edición
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -151,12 +193,14 @@ watch(() => auth.activeCompanyId, loadCategories, { immediate: true });
                     <tr class="table-header">
                         <th>Nombre</th>
                         <th>Descripción</th>
+                        <th>Estado</th>
+                        <th class="text-right">Acciones</th>
                     </tr>
                 </thead>
 
                 <tbody>
                     <tr v-if="!loading && categories.length === 0">
-                        <td colspan="2" class="text-center py-10 text-medium-emphasis">
+                        <td colspan="4" class="text-center py-10 text-medium-emphasis">
                             <v-icon icon="mdi-shape-outline" size="34" class="mb-2" />
                             <div>No hay categorías todavía.</div>
                         </td>
@@ -168,6 +212,32 @@ watch(() => auth.activeCompanyId, loadCategories, { immediate: true });
                     >
                         <td class="font-weight-medium text-secondary">{{ category.name }}</td>
                         <td class="text-medium-emphasis">{{ category.description || '—' }}</td>
+                        <td>
+                            <v-chip
+                                size="small"
+                                :color="category.is_active ? 'success' : 'default'"
+                                variant="tonal"
+                            >
+                                {{ category.is_active ? 'Activa' : 'Inactiva' }}
+                            </v-chip>
+                        </td>
+                        <td class="text-right">
+                            <v-btn
+                                icon="mdi-pencil"
+                                variant="text"
+                                aria-label="Editar categoría"
+                                :disabled="saving"
+                                @click="editCategory(category)"
+                            />
+                            <v-btn
+                                :icon="category.is_active ? 'mdi-toggle-switch' : 'mdi-toggle-switch-off-outline'"
+                                :color="category.is_active ? 'success' : 'secondary'"
+                                variant="text"
+                                :aria-label="category.is_active ? 'Dar de baja categoría' : 'Reactivar categoría'"
+                                :loading="saving"
+                                @click="setCategoryActive(category)"
+                            />
+                        </td>
                     </tr>
                 </tbody>
             </v-table>

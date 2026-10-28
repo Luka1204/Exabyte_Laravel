@@ -70,4 +70,22 @@ describe('company member service', () => {
             { headers: { Authorization: expect.any(String) } },
         );
     });
+
+    it('reactivates an inactive member without removing the membership history', async () => {
+        const member = {
+            id: 12,
+            name: 'Miembro',
+            email: 'member@example.test',
+            role: 'member' as const,
+            is_active: true,
+        };
+        vi.mocked(http.patch).mockResolvedValueOnce({ data: { data: member } });
+
+        await expect(companyService.setMemberActive(4, 12, true)).resolves.toEqual(member);
+        expect(http.patch).toHaveBeenCalledWith(
+            '/companies/4/members/12',
+            { is_active: true },
+            { headers: { Authorization: expect.any(String) } },
+        );
+    });
 });
