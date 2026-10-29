@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => ({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
             },
         },
         allowedHosts: [
-            'move-bags-safely-syndrome.trycloudflare.com'
+            'alex-meyer-vocabulary-discussions.trycloudflare.com'
         ]
     },
     test: {
