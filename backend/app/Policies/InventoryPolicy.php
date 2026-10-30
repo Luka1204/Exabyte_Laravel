@@ -8,16 +8,11 @@ class InventoryPolicy
 {
     public function viewAny(User $user, int $companyId): bool
     {
-        return $user->companies()
-            ->whereKey($companyId)
-            ->exists();
+        return $user->hasCompanyPermission($companyId, 'inventory.view');
     }
 
     public function create(User $user, int $companyId): bool
     {
-        return $user->companies()
-            ->whereKey($companyId)
-            ->wherePivotIn('role', ['owner', 'manager'])
-            ->exists();
+        return $user->hasCompanyPermission($companyId, 'inventory.manage');
     }
 }

@@ -13,9 +13,10 @@ class UpdateCompanyMemberRole
         Company $company,
         int $userId,
         ?string $role,
-        ?bool $isActive = null
+        ?bool $isActive = null,
+        ?array $permissions = null
     ): void {
-        DB::transaction(function () use ($company, $userId, $role, $isActive): void {
+        DB::transaction(function () use ($company, $userId, $role, $isActive, $permissions): void {
             $membership = DB::table('company_memberships')
                 ->where('company_id', $company->getKey())
                 ->where('user_id', $userId)
@@ -31,7 +32,7 @@ class UpdateCompanyMemberRole
 
             if (
                 $membership->role === 'owner'
-                && ($role !== null || $isActive === false)
+                && ($role !== null || $isActive === false || $permissions !== null)
             ) {
                 throw ValidationException::withMessages([
                     'member' => ['La membresía owner no se puede cambiar ni desactivar desde esta operación.'],
@@ -44,6 +45,9 @@ class UpdateCompanyMemberRole
             }
             if ($isActive !== null) {
                 $changes['is_active'] = $isActive;
+            }
+            if ($permissions !== null) {
+                $changes['permissions'] = json_encode($permissions);
             }
 
             DB::table('company_memberships')

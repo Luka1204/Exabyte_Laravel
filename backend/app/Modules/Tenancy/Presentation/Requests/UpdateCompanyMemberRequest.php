@@ -15,8 +15,13 @@ class UpdateCompanyMemberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['required_without:is_active', 'string', Rule::in(['manager', 'member'])],
-            'is_active' => ['required_without:role', 'boolean'],
+            'role' => ['sometimes', 'string', Rule::in(['manager', 'member'])],
+            'is_active' => ['sometimes', 'boolean'],
+            'permissions' => ['sometimes', 'array', 'max:8'],
+            'permissions.*' => ['string', Rule::in([
+                'catalog.view', 'catalog.manage', 'inventory.view', 'inventory.manage',
+                'sales.operate', 'sales.manage', 'reports.view', 'activity.view',
+            ])],
         ];
     }
 }

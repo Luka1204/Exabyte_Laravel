@@ -15,12 +15,14 @@ use App\Modules\Subscriptions\Presentation\Http\Controllers\CompanySubscriptionC
 use App\Modules\Subscriptions\Presentation\Http\Controllers\MercadoPagoWebhookController;
 use App\Modules\Subscriptions\Presentation\Http\Controllers\PlanController;
 use App\Modules\Subscriptions\Presentation\Http\Controllers\PlatformBillingController;
+use App\Modules\Subscriptions\Presentation\Http\Controllers\PlatformUserController;
 use App\Modules\Subscriptions\Presentation\Http\Middleware\RequirePlatformAdmin;
 use App\Modules\Subscriptions\Presentation\Http\Middleware\RequireSubscriptionEntitlement;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyController;
 use App\Modules\Tenancy\Presentation\Http\Controllers\CompanyMemberController;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyMembership;
 use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyOwner;
+use App\Modules\Tenancy\Presentation\Http\Middleware\RequireCompanyPermission;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -46,6 +48,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/subscriptions', [PlatformBillingController::class, 'subscriptions']);
                 Route::get('/payments', [PlatformBillingController::class, 'payments']);
                 Route::get('/metrics', [PlatformBillingController::class, 'metrics']);
+                Route::get('/users', [PlatformUserController::class, 'index']);
+                Route::patch('/users/{user}/platform-admin', [PlatformUserController::class, 'setAdmin']);
             });
         Route::prefix('/companies/{company}/subscription')
             ->middleware(RequireCompanyOwner::class)
@@ -67,6 +71,7 @@ Route::prefix('v1')->group(function () {
             ->middleware(RequireCompanyOwner::class)
             ->group(function () {
                 Route::get('/', [CompanyMemberController::class, 'index']);
+                Route::post('/', [CompanyMemberController::class, 'store']);
                 Route::patch('/{member}', [CompanyMemberController::class, 'update']);
                 Route::delete('/{member}', [CompanyMemberController::class, 'destroy']);
             });
@@ -99,11 +104,11 @@ Route::prefix('v1')->group(function () {
                 Route::post('/sales/{sale}/returns', [SaleController::class, 'storeReturn']);
             });
             Route::get('/reports/sales', [SalesReportController::class, 'summary'])
-                ->middleware(RequireSubscriptionEntitlement::class.':sales_reports');
+                ->middleware([RequireSubscriptionEntitlement::class.':sales_reports', RequireCompanyPermission::class.':reports.view']);
             Route::get('/reports/inventory', [SalesReportController::class, 'inventory'])
-                ->middleware(RequireSubscriptionEntitlement::class.':inventory_reports');
+                ->middleware([RequireSubscriptionEntitlement::class.':inventory_reports', RequireCompanyPermission::class.':reports.view']);
             Route::get('/reports/cash', [SalesReportController::class, 'cash'])
-                ->middleware(RequireSubscriptionEntitlement::class.':cash_reports');
+                ->middleware([RequireSubscriptionEntitlement::class.':cash_reports', RequireCompanyPermission::class.':reports.view']);
         });
     });
 });

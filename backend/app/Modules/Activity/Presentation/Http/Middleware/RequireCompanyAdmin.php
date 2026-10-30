@@ -11,10 +11,7 @@ class RequireCompanyAdmin
     public function handle(Request $request, Closure $next): Response
     {
         $companyId = $request->attributes->get('active_company_id');
-        $isAdmin = $request->user()->companies()
-            ->whereKey($companyId)
-            ->wherePivotIn('role', ['owner', 'manager'])
-            ->exists();
+        $isAdmin = $request->user()->hasCompanyPermission((int) $companyId, 'activity.view');
 
         if (! $isAdmin) {
             return response()->json([

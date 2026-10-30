@@ -8,9 +8,7 @@ class SalePolicy
 {
     public function viewAny(User $user, int $companyId): bool
     {
-        return $user->companies()
-            ->whereKey($companyId)
-            ->exists();
+        return $user->hasCompanyPermission($companyId, 'sales.operate');
     }
 
     public function operate(User $user, int $companyId): bool
@@ -20,10 +18,7 @@ class SalePolicy
 
     public function void(User $user, int $companyId): bool
     {
-        return $user->companies()
-            ->whereKey($companyId)
-            ->wherePivotIn('role', ['owner', 'manager'])
-            ->exists();
+        return $user->hasCompanyPermission($companyId, 'sales.manage');
     }
 
     public function createReturn(User $user, int $companyId): bool

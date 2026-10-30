@@ -22,6 +22,6 @@ class Company extends Model
         return $this->belongsToMany(
             User::class,
             'company_memberships'
-        )->withPivot('role', 'is_active')->withTimestamps();
+        )->withPivot('role', 'is_active', 'permissions')->withTimestamps();
     }
 }
