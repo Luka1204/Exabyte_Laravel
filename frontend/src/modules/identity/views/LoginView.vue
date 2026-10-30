@@ -35,7 +35,16 @@ async function submit() {
         }
 
         await authService.login(email.value, password.value);
-        await router.push(auth.activeCompany ? '/categories' : '/companies');
+        const requestedPath = router.currentRoute.value.query.redirect;
+        const safeRequestedPath = typeof requestedPath === 'string'
+            && requestedPath.startsWith('/')
+            && !requestedPath.startsWith('//')
+            ? requestedPath
+            : null;
+        await router.push(
+            safeRequestedPath
+                ?? (auth.activeCompany ? '/categories' : '/companies'),
+        );
     } catch {
         error.value = 'No se pudo iniciar sesión. Revisá tus credenciales.';
     } finally {

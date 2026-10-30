@@ -51,6 +51,8 @@ Route::prefix('v1')->group(function () {
             ->middleware(RequireCompanyOwner::class)
             ->group(function () {
                 Route::get('/', [CompanySubscriptionController::class, 'show']);
+                Route::post('/reconcile', [CompanySubscriptionController::class, 'reconcile'])
+                    ->middleware('throttle:10,1');
                 Route::post('/', [CompanySubscriptionController::class, 'start'])
                     ->middleware('throttle:10,1');
                 Route::put('/', [CompanySubscriptionController::class, 'change'])

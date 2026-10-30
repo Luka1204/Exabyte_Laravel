@@ -5,6 +5,7 @@ namespace App\Modules\Subscriptions\Presentation\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Subscriptions\Application\UseCases\CancelSubscription;
 use App\Modules\Subscriptions\Application\UseCases\ChangeSubscription;
+use App\Modules\Subscriptions\Application\UseCases\ReconcileSubscription;
 use App\Modules\Subscriptions\Application\UseCases\StartSubscription;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoNotConfigured;
 use App\Modules\Subscriptions\Domain\Exceptions\MercadoPagoRequestFailed;
@@ -24,6 +25,25 @@ class CompanySubscriptionController extends Controller
             ->where('company_id', $company)
             ->latest('id')
             ->first();
+
+        return response()->json(['data' => $subscription]);
+    }
+
+    public function reconcile(Request $request, int $company, ReconcileSubscription $useCase): JsonResponse
+    {
+        $data = $request->validate([
+            'preapproval_id' => ['required', 'string', 'max:120'],
+        ]);
+
+        try {
+            $subscription = $useCase->execute($company, $data['preapproval_id']);
+        } catch (MercadoPagoNotConfigured $exception) {
+            return response()->json(['message' => $exception->getMessage()], Response::HTTP_SERVICE_UNAVAILABLE);
+        } catch (MercadoPagoRequestFailed) {
+            return response()->json([
+                'message' => 'No se pudo consultar el estado del pago en Mercado Pago.',
+            ], Response::HTTP_BAD_GATEWAY);
+        }
 
         return response()->json(['data' => $subscription]);
     }

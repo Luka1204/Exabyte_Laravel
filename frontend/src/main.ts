@@ -54,7 +54,10 @@ router.beforeEach((to) => {
 
     if (to.matched.some((record) => record.meta.requiresAuth)
         && !auth.accessToken) {
-        return '/login';
+        return {
+            path: '/login',
+            query: { redirect: to.fullPath },
+        };
     }
 
     if (to.meta.guestOnly && auth.accessToken) {

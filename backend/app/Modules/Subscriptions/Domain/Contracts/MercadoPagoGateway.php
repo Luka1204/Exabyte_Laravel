@@ -36,6 +36,9 @@ interface MercadoPagoGateway
      */
     public function getAuthorizedPayment(int $id): array;
 
+    /** @return list<int> Invoice IDs with approved payments for this subscription. */
+    public function findApprovedAuthorizedPaymentIds(string $preapprovalId): array;
+
     /**
      * @return array{id: string, status: string}
      */

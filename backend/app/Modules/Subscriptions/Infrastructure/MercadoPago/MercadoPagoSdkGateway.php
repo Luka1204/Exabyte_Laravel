@@ -93,6 +93,26 @@ class MercadoPagoSdkGateway implements MercadoPagoGateway
         ];
     }
 
+    public function findApprovedAuthorizedPaymentIds(string $preapprovalId): array
+    {
+        $search = $this->request(
+            'invoice.search',
+            fn () => (new InvoiceClient)->search(
+                new MPSearchRequest(10, 0, ['preapproval_id' => $preapprovalId])
+            )
+        );
+        $results = is_array($search->results) ? $search->results : [];
+
+        return array_values(array_map(
+            static fn ($invoice): int => (int) $invoice->id,
+            array_filter($results, static fn ($invoice): bool =>
+                is_object($invoice)
+                && is_numeric($invoice->id ?? null)
+                && strtolower((string) ($invoice->payment?->status ?? '')) === 'approved'
+            )
+        ));
+    }
+
     public function cancelPreapproval(string $id): array
     {
         $preapproval = $this->request(
@@ -218,7 +238,7 @@ class MercadoPagoSdkGateway implements MercadoPagoGateway
 
     /**
      * @param  array<string, mixed>|null  $response
-     * @return array{provider_response_fields: list<string>, provider_validation_category: string}
+     * @return array{provider_response_fields: list<string>, provider_validation_category: string, provider_validation_detail: string}
      */
     private function providerErrorDiagnostics(?array $response): array
     {
@@ -226,12 +246,22 @@ class MercadoPagoSdkGateway implements MercadoPagoGateway
             return [
                 'provider_response_fields' => [],
                 'provider_validation_category' => 'unparsed_response',
+                'provider_validation_detail' => 'unparsed_response',
             ];
         }
 
         $allowedFields = ['error', 'message', 'status', 'cause', 'code', 'errors', 'description'];
         $responseFields = array_values(array_intersect($allowedFields, array_keys($response)));
         $text = $this->providerErrorText($response);
+
+        $detail = match (true) {
+            preg_match('/payer.{0,40}(same|seller|collector)|(?:same|seller|collector).{0,40}payer/i', $text) === 1 => 'payer_conflicts_with_seller',
+            preg_match('/email.{0,30}(invalid|format|valid)|(?:invalid|format).{0,30}email/i', $text) === 1 => 'payer_email_format',
+            preg_match('/payer.{0,40}(country|site)|(?:country|site).{0,40}payer/i', $text) === 1 => 'payer_country_mismatch',
+            preg_match('/payer.{0,40}(not found|does not exist|inexistent)|(?:not found|does not exist).{0,40}payer/i', $text) === 1 => 'payer_account_not_found',
+            preg_match('/payer_email|payer|buyer|user|email/i', $text) === 1 => 'payer_other',
+            default => 'provider_validation',
+        };
 
         $category = match (true) {
             preg_match('/payer_email|payer|buyer|user|email/i', $text) === 1 => 'payer',
@@ -246,6 +276,7 @@ class MercadoPagoSdkGateway implements MercadoPagoGateway
         return [
             'provider_response_fields' => $responseFields,
             'provider_validation_category' => $category,
+            'provider_validation_detail' => $detail,
         ];
     }
 

@@ -128,6 +128,17 @@ export const subscriptionService = {
         return response.data.data;
     },
 
+    async reconcile(companyId: number, preapprovalId: string): Promise<CompanySubscription> {
+        const auth = useAuthStore();
+        const response = await http.post<{ data: CompanySubscription }>(
+            `/companies/${companyId}/subscription/reconcile`,
+            { preapproval_id: preapprovalId },
+            { headers: auth.authHeaders() },
+        );
+
+        return response.data.data;
+    },
+
     async platformPlans(): Promise<Plan[]> {
         const auth = useAuthStore();
         const response = await http.get<{ data: Plan[] }>('/platform/plans', {

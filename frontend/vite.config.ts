@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => ({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://127.0.0.1:8000',
+                target: 'https://exemption-therapy-belong-sin.trycloudflare.com',
                 changeOrigin: true,
             },
         },
         allowedHosts: [
-            'alex-meyer-vocabulary-discussions.trycloudflare.com'
+            'deutschland-damaged-hash-stand.trycloudflare.com'
         ]
     },
     test: {

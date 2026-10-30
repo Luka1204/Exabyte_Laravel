@@ -72,6 +72,7 @@ export const routes: RouteRecordRaw[] = [
             },
             {
                 path: 'subscription',
+                alias: 'subscriptions',
                 component: CompanySubscriptionView,
             },
         ],

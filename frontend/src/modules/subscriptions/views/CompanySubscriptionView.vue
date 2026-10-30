@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { apiErrorMessage } from '../../../shared/api/errorMessage';
 import { useAuthStore } from '../../identity/stores/authStore';
 import {
@@ -9,6 +10,7 @@ import {
 } from '../services/subscriptionService';
 
 const auth = useAuthStore();
+const route = useRoute();
 const subscription = ref<CompanySubscription | null>(null);
 const plans = ref<Plan[]>([]);
 const selectedPlanId = ref<number | null>(null);
@@ -99,7 +101,41 @@ function date(value: string | null) {
 }
 
 watch(() => auth.activeCompanyId, load);
-onMounted(load);
+onMounted(async () => {
+    await load();
+
+    const preapprovalId = route.query.preapproval_id;
+    if (typeof preapprovalId !== 'string' || !auth.activeCompanyId) {
+        return;
+    }
+
+    try {
+        subscription.value = await subscriptionService.reconcile(
+            auth.activeCompanyId,
+            preapprovalId,
+        );
+    } catch (exception: unknown) {
+        error.value = apiErrorMessage(
+            exception,
+            'No se pudo confirmar el pago con Mercado Pago. Podés actualizar la página para reintentar.',
+        );
+        return;
+    }
+
+    for (let attempt = 0; attempt < 15; attempt++) {
+        if (!auth.activeCompanyId || subscription.value?.status !== 'pending') {
+            break;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        try {
+            subscription.value = await subscriptionService.current(auth.activeCompanyId);
+        } catch {
+            // The page keeps the pending state visible and the user can refresh manually.
+            break;
+        }
+    }
+});
 </script>
 
 <template>
@@ -117,6 +153,15 @@ onMounted(load);
 
         <v-alert v-if="error" type="error" class="mb-5" rounded="lg">{{ error }}</v-alert>
         <v-alert v-if="success" type="success" class="mb-5" rounded="lg">{{ success }}</v-alert>
+        <v-alert
+            v-if="route.query.preapproval_id && subscription?.status === 'pending'"
+            type="info"
+            class="mb-5"
+            rounded="lg"
+        >
+            Recibimos el regreso de Mercado Pago. Estamos esperando la confirmaciÃ³n del pago;
+            esta pÃ¡gina consultarÃ¡ el estado durante unos segundos.
+        </v-alert>
         <v-progress-linear v-if="loading" indeterminate color="primary" class="mb-5" />
 
         <v-card v-if="subscription" class="surface-card mb-6">
