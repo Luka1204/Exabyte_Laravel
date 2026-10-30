@@ -87,4 +87,9 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('../modules/subscriptions/views/PlatformPlansView.vue'),
         meta: { requiresAuth: true },
     },
+    {
+        path: '/platform/users',
+        component: () => import('../modules/subscriptions/views/PlatformUsersView.vue'),
+        meta: { requiresAuth: true },
+    },
 ];

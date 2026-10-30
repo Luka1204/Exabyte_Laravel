@@ -10,6 +10,7 @@ interface CompaniesResponse {
 }
 
 export type CompanyMemberRole = 'owner' | 'manager' | 'member';
+export type CompanyPermission = 'catalog.view' | 'catalog.manage' | 'inventory.view' | 'inventory.manage' | 'sales.operate' | 'sales.manage' | 'reports.view' | 'activity.view';
 
 export interface CompanyMember {
     id: number;
@@ -17,6 +18,7 @@ export interface CompanyMember {
     email: string;
     role: CompanyMemberRole;
     is_active: boolean;
+    permissions: CompanyPermission[];
 }
 
 interface MembersResponse {
@@ -25,6 +27,7 @@ interface MembersResponse {
 
 interface MemberResponse {
     data: CompanyMember;
+    account_created?: boolean;
 }
 
 export const companyService = {
@@ -85,6 +88,16 @@ export const companyService = {
         return response.data.data;
     },
 
+    async addMember(companyId: number, input: { name: string; email: string; password: string; password_confirmation: string; role: Exclude<CompanyMemberRole, 'owner'> }): Promise<{ member: CompanyMember; accountCreated: boolean }> {
+        const auth = useAuthStore();
+        const response = await http.post<MemberResponse>(
+            `/companies/${companyId}/members`,
+            input,
+            { headers: auth.authHeaders() },
+        );
+        return { member: response.data.data, accountCreated: response.data.account_created ?? false };
+    },
+
     async updateMemberRole(
         companyId: number,
         memberId: number,
@@ -97,6 +110,16 @@ export const companyService = {
             { headers: auth.authHeaders() },
         );
 
+        return response.data.data;
+    },
+
+    async updateMemberPermissions(companyId: number, memberId: number, permissions: CompanyPermission[]): Promise<CompanyMember> {
+        const auth = useAuthStore();
+        const response = await http.patch<MemberResponse>(
+            `/companies/${companyId}/members/${memberId}`,
+            { permissions },
+            { headers: auth.authHeaders() },
+        );
         return response.data.data;
     },
 

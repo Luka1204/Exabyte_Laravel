@@ -140,6 +140,7 @@ onMounted(load);
             </div>
             <div class="d-flex ga-2">
                 <v-btn to="/platform" variant="outlined" color="secondary" rounded="lg">Resumen</v-btn>
+                <v-btn to="/platform/users" variant="outlined" color="secondary" rounded="lg">Usuarios y roles</v-btn>
                 <v-btn color="primary" prepend-icon="mdi-plus" rounded="lg" @click="resetForm()">
                     Crear plan
                 </v-btn>

@@ -91,6 +91,15 @@ export interface PaymentAttempt {
     paid_at: string | null;
 }
 
+export interface PlatformUser {
+    id: number;
+    name: string;
+    email: string;
+    companies_count: number;
+    is_platform_admin: boolean;
+    created_at: string;
+}
+
 export interface CompanySubscription {
     id: number;
     company_id: number;
@@ -112,6 +121,21 @@ export interface CompanySubscription {
 }
 
 export const subscriptionService = {
+    async platformUsers(): Promise<PlatformUser[]> {
+        const auth = useAuthStore();
+        const response = await http.get<{ data: PlatformUser[] }>('/platform/users', {
+            headers: auth.authHeaders(),
+        });
+        return response.data.data;
+    },
+
+    async setPlatformAdmin(userId: number, isPlatformAdmin: boolean): Promise<void> {
+        const auth = useAuthStore();
+        await http.patch(`/platform/users/${userId}/platform-admin`, {
+            is_platform_admin: isPlatformAdmin,
+        }, { headers: auth.authHeaders() });
+    },
+
     async plans(): Promise<Plan[]> {
         const response = await http.get<{ data: Plan[] }>('/plans');
 

@@ -54,6 +54,7 @@ onMounted(load);
             <div class="d-flex ga-2">
                 <v-btn to="/platform" variant="tonal" color="secondary" rounded="lg">Resumen</v-btn>
                 <v-btn to="/platform/plans" variant="outlined" color="secondary" rounded="lg">Planes</v-btn>
+                <v-btn to="/platform/users" variant="outlined" color="secondary" rounded="lg">Usuarios y roles</v-btn>
             </div>
         </div>
 
